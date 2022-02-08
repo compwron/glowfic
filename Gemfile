@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 
-ruby '2.6.6'
+ruby '2.6.9'
 
 gem 'api-pagination'
 gem 'apipie-rails'
@@ -16,10 +16,10 @@ gem 'aws-sdk-rails', '~> 2'
 gem 'aws-sdk-s3', '~> 1'
 gem 'aws-sdk-ses', '~> 1'
 gem 'barnes' # heroku ruby-specific metrics
-gem 'bootstrap'
+gem 'bootstrap', '~> 4.5' # pin until major version is handled
 gem 'exception_notification'
 gem 'get_process_mem'
-gem 'gon', '~> 6.2.1'
+gem 'gon', '~> 6.4.0'
 gem 'haml-rails'
 gem 'httparty'
 gem 'jquery-fileupload-rails'
@@ -34,7 +34,7 @@ gem 'oauth-plugin', git: 'https://github.com/KennaSecurity/oauth-plugin'
 gem 'pg', '~> 1.1.4'
 gem 'pg_search'
 gem 'rack-pratchett'
-gem 'rails', '~> 5.2.0'
+gem 'rails', '~> 6.0.0'
 gem 'redis', '~> 4.0'
 gem 'redis-rails'
 gem 'resque'
@@ -46,7 +46,7 @@ gem 'sprockets', '~> 3.7' # pin sprockets until we deal with its major upgrade
 gem 'test-unit', '~> 3.0' # required by Heroku for production console
 gem 'tinymce-rails'
 gem 'uglifier'
-gem 'will_paginate', '~> 3.1.8' # pin will_paginate until we deal with breaking WillPaginate::ViewHelpers::LinkRenderer change
+gem 'will_paginate'
 
 group :production do
   gem 'puma'
@@ -56,14 +56,15 @@ group :production do
 end
 
 group :development do
-  gem 'haml-lint', require: false
+  gem "brakeman", '~> 5.2.0', require: false
+  gem 'haml_lint', '~> 0.37.0', require: false
   gem 'listen'
   gem 'memory_profiler'
   gem 'rack-mini-profiler'
-  gem 'rubocop', '~> 0.80.0', require: false
-  gem 'rubocop-performance', '~> 1.5.2', require: false
-  gem 'rubocop-rails', '~> 2.4.2', require: false
-  gem 'rubocop-rspec', '~> 1.38.1', require: false
+  gem 'rubocop', '~> 1.23.0', require: false
+  gem 'rubocop-performance', '~> 1.12.0', require: false
+  gem 'rubocop-rails', '~> 2.12.4', require: false
+  gem 'rubocop-rspec', '~> 2.6.0', require: false
   gem 'traceroute'
 end
 
@@ -81,10 +82,11 @@ end
 group :test do
   gem 'capybara'
   gem 'factory_bot_rails'
+  gem 'fakeredis'
   gem 'rails-controller-testing'
   gem 'resque_spec'
   gem 'selenium-webdriver'
-  gem 'simplecov', '~> 0.17.1'
+  gem 'simplecov'
   gem 'timecop'
   gem 'webdrivers', '~> 4.0'
   gem 'webmock'

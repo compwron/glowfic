@@ -4,7 +4,7 @@
 
 ### Dependencies
 
-*   [Ruby](https://www.ruby-lang.org/en/) 2.6.6
+*   [Ruby](https://www.ruby-lang.org/en/) 2.6.9
 *   [Rails](http://rubyonrails.org/) 5.2
 *   [Redis](https://redis.io/topics/quickstart)
 *   [PostgreSQL](https://www.postgresql.org/)
@@ -95,7 +95,7 @@ First, go to the glowfic folder and download the latest code:
 *   `git pull`
 
 Then look at this README again, to make sure the version of Ruby hasn't changed; alternatively, in case this file is not up to date, look at the top of the `Gemfile` file, where it states the version of ruby.
-As of writing, this is `ruby '2.6.6'`.
+As of writing, this is `ruby '2.6.9'`.
 If it has changed, you can rebuild the glowfic image with:
 
 *   `docker-compose stop`
@@ -120,16 +120,18 @@ We use the following tools to make sure our code is clean and standards-ctomplia
 * The [W3 HTML validator](https://validator.w3.org/)
 * [traceroute](https://github.com/amatsuda/traceroute)
 * [rails_best_practices](https://github.com/flyerhzm/rails_best_practices)
-* [haml-lint](https://github.com/sds/haml-lint)
 * [sass-lint](https://github.com/sasstools/sass-lint)
 
-CodeClimate runs the following tools automatically:
+We run the following tools through github actions:
 * [brakeman](https://github.com/presidentbeef/brakeman)
+* [ESLint](https://eslint.org/)
+* [haml-lint](https://github.com/sds/haml-lint)
+* [Rubocop](https://github.com/rubocop-hq/rubocop)
+
+CodeClimate runs the following tools automatically:
 * [bundler-audit](https://github.com/rubysec/bundler-audit)
 * [duplication](https://github.com/codeclimate/codeclimate-duplication)
-* [ESLint](https://eslint.org/)
 * [fixme](https://github.com/codeclimate/codeclimate-fixme)
-* [Rubocop](https://github.com/rubocop-hq/rubocop)
 
 Tools we do not currently use but are interested in evaluating:
 * [bullet](https://github.com/flyerhzm/bullet)
