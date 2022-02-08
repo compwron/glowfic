@@ -1,6 +1,7 @@
 GIT
   remote: https://github.com/l1n/oauth-plugin
-  revision: 23e97ba6c1fc1430beb949ab34d336c31cc87422
+  revision: d4a09d005734c6d6722b47cf8ca4fa61102defb7
+  ref: d4a09d005734c6d6722b47cf8ca4fa61102defb7
   specs:
     oauth-plugin (0.5.1)
       multi_json
