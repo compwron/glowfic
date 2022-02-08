@@ -395,7 +395,7 @@ class CharactersController < ApplicationController
       :audit_comment,
       :retired,
       :cluster,
-      {ungrouped_gallery_ids: []},
+      { ungrouped_gallery_ids: [] },
     ]
     if @character.user == current_user
       permitted.last[:template_attributes] = [:name, :id]

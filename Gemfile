@@ -30,7 +30,7 @@ gem 'jwt'
 gem 'newrelic_rpm'
 gem 'nilify_blanks'
 gem 'nokogiri'
-gem 'oauth-plugin', git: 'https://github.com/KennaSecurity/oauth-plugin'
+gem 'oauth-plugin', git: 'https://github.com/KennaSecurity/oauth-plugin', branch: 'dependabot/bundler/oauth-gte-0.4.4-and-lt-0.6.0'
 gem 'pg', '~> 1.1.4'
 gem 'pg_search'
 gem 'rack-pratchett'
@@ -92,4 +92,4 @@ group :test do
   gem 'webmock'
 end
 
-gem "oauth", "~> 0.4.7"
+gem "oauth", "~> 0.5.8"

@@ -1,10 +1,11 @@
 GIT
   remote: https://github.com/KennaSecurity/oauth-plugin
-  revision: 518c083b1cef079ca48d610581f64e5d15733bbf
+  revision: 75fac1b0001b408a148cef38b3aa2d8444c084fe
+  branch: dependabot/bundler/oauth-gte-0.4.4-and-lt-0.6.0
   specs:
     oauth-plugin (0.5.1)
       multi_json
-      oauth (~> 0.4.4)
+      oauth (>= 0.4.4, < 0.6.0)
       oauth2 (>= 0.5.0)
       rack
 
@@ -246,8 +247,8 @@ GEM
       racc (~> 1.4)
     nokogumbo (2.0.5)
       nokogiri (~> 1.8, >= 1.8.4)
-    oauth (0.4.7)
-    oauth2 (1.4.4)
+    oauth (0.5.8)
+    oauth2 (1.4.7)
       faraday (>= 0.8, < 2.0)
       jwt (>= 1.0, < 3.0)
       multi_json (~> 1.3)
@@ -510,7 +511,7 @@ DEPENDENCIES
   newrelic_rpm
   nilify_blanks
   nokogiri
-  oauth (~> 0.4.7)
+  oauth (~> 0.5.8)
   oauth-plugin!
   pg (~> 1.1.4)
   pg_search
