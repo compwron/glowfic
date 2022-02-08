@@ -1,11 +1,10 @@
 GIT
-  remote: https://github.com/KennaSecurity/oauth-plugin
-  revision: 75fac1b0001b408a148cef38b3aa2d8444c084fe
-  branch: dependabot/bundler/oauth-gte-0.4.4-and-lt-0.6.0
+  remote: https://github.com/l1n/oauth-plugin
+  revision: 23e97ba6c1fc1430beb949ab34d336c31cc87422
   specs:
     oauth-plugin (0.5.1)
       multi_json
-      oauth (>= 0.4.4, < 0.6.0)
+      oauth (>= 0.5.0)
       oauth2 (>= 0.5.0)
       rack
 
