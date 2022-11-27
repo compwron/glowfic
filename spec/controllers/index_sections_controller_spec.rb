@@ -109,6 +109,13 @@ RSpec.describe IndexSectionsController do
     it "works for reader account" do
       login_as(create(:reader_user))
       get :show, params: { id: section.id }
+      expect(response).to have_http_status(200)
+      expect(assigns(:page_title)).to eq(section.name)
+    end
+
+    it "works for reader account" do
+      login_as(create(:reader_user))
+      get :show, params: { id: section.id }
       expect(response).to have_http_status(:ok)
       expect(assigns(:page_title)).to eq(section.name)
     end
