@@ -915,7 +915,7 @@ RSpec.describe CharactersController do
 
       login_as(user)
       get :replace, params: { id: character.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq("Replace Character: #{character.name}")
 
       expect(controller.gon.gallery[other_char.id][:url]).to eq(other_char.default_icon.url)
@@ -933,7 +933,7 @@ RSpec.describe CharactersController do
 
         login_as(user)
         get :replace, params: { id: character.id }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:page_title)).to eq("Replace Character: #{character.name}")
         expect(assigns(:alts)).to match_array(alts)
         expect(assigns(:alt_dropdown).length).to eq(alts.length)
@@ -947,7 +947,7 @@ RSpec.describe CharactersController do
 
         login_as(user)
         get :replace, params: { id: character.id }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:alts)).to match_array([character])
       end
     end
@@ -962,7 +962,7 @@ RSpec.describe CharactersController do
 
         login_as(user)
         get :replace, params: { id: character.id }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:page_title)).to eq("Replace Character: #{character.name}")
         expect(assigns(:alts)).to match_array(alts)
         expect(assigns(:alt_dropdown).length).to eq(alts.length)
@@ -976,7 +976,7 @@ RSpec.describe CharactersController do
 
         login_as(user)
         get :replace, params: { id: character.id }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:alts)).to match_array([character])
       end
     end
@@ -1206,14 +1206,14 @@ RSpec.describe CharactersController do
     it 'works logged in' do
       login
       get :search
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:users)).to be_empty
       expect(assigns(:templates)).to be_empty
     end
 
     it 'works logged out' do
       get :search
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:users)).to be_empty
     end
 
@@ -1228,7 +1228,7 @@ RSpec.describe CharactersController do
       found = create(:character, user: author)
       create(:character) # notfound
       get :search, params: { commit: true, author_id: author.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:users)).to match_array([author])
       expect(assigns(:search_results)).to match_array([found])
     end
@@ -1236,7 +1236,7 @@ RSpec.describe CharactersController do
     it "doesn't search missing author" do
       character = create(:template_character)
       get :search, params: { commit: true, author_id: 9999 }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(flash[:error]).to eq('The specified author could not be found.')
       expect(assigns(:users)).to be_empty
       expect(assigns(:search_results)).to match_array([character])
@@ -1255,7 +1255,7 @@ RSpec.describe CharactersController do
     it "doesn't search missing template" do
       character = create(:template_character)
       get :search, params: { commit: true, template_id: 9999 }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(flash[:error]).to eq('The specified template could not be found.')
       expect(assigns(:templates)).to be_empty
       expect(assigns(:search_results)).to match_array([character])
@@ -1265,7 +1265,7 @@ RSpec.describe CharactersController do
       character = create(:template_character)
       character2 = create(:character)
       get :search, params: { commit: true, template_id: character.template_id, author_id: character2.user_id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(flash[:error]).to eq('The specified author and template do not match; template filter will be ignored.')
       expect(assigns(:templates)).to be_empty
       expect(assigns(:search_results)).to match_array([character2])
@@ -1277,7 +1277,7 @@ RSpec.describe CharactersController do
       found = create(:character, user: author, template: template)
       create(:character, user: author, template: create(:template, user: author)) # notfound
       get :search, params: { commit: true, template_id: template.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:templates)).to match_array([template])
       expect(assigns(:search_results)).to match_array([found])
     end

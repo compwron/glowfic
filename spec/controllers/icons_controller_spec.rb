@@ -183,14 +183,14 @@ RSpec.describe IconsController do
 
     it "successfully loads when logged out" do
       get :show, params: { id: icon.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:posts)).to be_nil
     end
 
     it "successfully loads when logged in" do
       login
       get :show, params: { id: icon.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:posts)).to be_nil
     end
 
@@ -233,14 +233,14 @@ RSpec.describe IconsController do
 
       it "loads posts logged out" do
         get :show, params: { id: icon.id, view: 'posts' }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:posts)).to match_array([post, other_post])
       end
 
       it "loads posts logged in" do
         login
         get :show, params: { id: icon.id, view: 'posts' }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:posts)).to match_array([post, other_post])
       end
 
@@ -267,14 +267,14 @@ RSpec.describe IconsController do
 
       it "loads logged out" do
         get :show, params: { id: icon.id, view: 'galleries' }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:javascripts)).to include('galleries/expander_old')
       end
 
       it "loads logged in" do
         login
         get :show, params: { id: icon.id, view: 'galleries' }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:javascripts)).to include('galleries/expander_old')
       end
     end
@@ -315,21 +315,13 @@ RSpec.describe IconsController do
         login_as(create(:reader_user))
         get :show, params: { id: icon.id }
         expect(response).to have_http_status(200)
-        expect(assigns(:times_used)).to eq(5)
-        expect(assigns(:posts_used)).to eq(4)
-      end
-
-      it "fetches correct counts when logged in as reader account" do
-        login_as(create(:reader_user))
-        get :show, params: { id: icon.id }
-        expect(response).to have_http_status(:ok)
         expect(assigns(:times_used)).to eq(4)
         expect(assigns(:posts_used)).to eq(3)
       end
 
       it "fetches corect counts when logged out" do
         get :show, params: { id: icon.id }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:times_used)).to eq(3)
         expect(assigns(:posts_used)).to eq(2)
       end
@@ -599,7 +591,7 @@ RSpec.describe IconsController do
 
         login_as(icon.user)
         get :replace, params: { id: icon.id }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:alts)).to match_array(alts)
         expect(assigns(:posts)).to match_array([post, reply.post])
         expect(assigns(:page_title)).to eq("Replace Icon: #{icon.keyword}")
@@ -625,7 +617,7 @@ RSpec.describe IconsController do
 
         login_as(icon.user)
         get :replace, params: { id: icon.id }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:alts)).to match_array(alts)
         expect(assigns(:posts)).to match_array([post, reply.post])
         expect(assigns(:page_title)).to eq("Replace Icon: #{icon.keyword}")

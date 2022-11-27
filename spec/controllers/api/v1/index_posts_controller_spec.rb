@@ -2,7 +2,7 @@ RSpec.describe Api::V1::IndexPostsController do
   describe "POST reorder" do
     it "requires login", :show_in_doc do
       post :reorder
-      expect(response).to have_http_status(:unauthorized)
+      expect(response).to have_http_status(401)
       expect(response.json['errors'][0]['message']).to eq("You must be logged in to view that page.")
     end
 
@@ -18,7 +18,7 @@ RSpec.describe Api::V1::IndexPostsController do
 
         api_login
         post :reorder, params: { ordered_post_ids: post_ids }
-        expect(response).to have_http_status(:forbidden)
+        expect(response).to have_http_status(403)
         expect(index_post1.reload.section_order).to eq(0)
         expect(index_post2.reload.section_order).to eq(1)
       end
@@ -38,7 +38,7 @@ RSpec.describe Api::V1::IndexPostsController do
         post_ids = [index_post3.id, index_post2.id, index_post1.id]
         api_login_as(user)
         post :reorder, params: { ordered_post_ids: post_ids }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(422)
         expect(response.json['errors'][0]['message']).to eq('Posts must be from one index')
         expect(index_post1.reload.section_order).to eq(0)
         expect(index_post2.reload.section_order).to eq(0)
@@ -58,7 +58,7 @@ RSpec.describe Api::V1::IndexPostsController do
         post_ids = [index_post2.id, index_post1.id]
         api_login_as(user)
         post :reorder, params: { ordered_post_ids: post_ids }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(422)
         expect(response.json['errors'][0]['message']).to eq('Posts must be from one specified section in the index, or no section')
         expect(index_post1.reload.section_order).to eq(0)
         expect(index_post2.reload.section_order).to eq(1)
@@ -75,7 +75,7 @@ RSpec.describe Api::V1::IndexPostsController do
         post_ids = [-1]
         api_login_as(user)
         post :reorder, params: { ordered_post_ids: post_ids }
-        expect(response).to have_http_status(:not_found)
+        expect(response).to have_http_status(404)
         expect(response.json['errors'][0]['message']).to eq('Some posts could not be found: -1')
       end
 
@@ -149,7 +149,7 @@ RSpec.describe Api::V1::IndexPostsController do
 
         api_login
         post :reorder, params: { ordered_post_ids: post_ids, section_id: index_section.id }
-        expect(response).to have_http_status(:forbidden)
+        expect(response).to have_http_status(403)
         expect(index_post1.reload.section_order).to eq(0)
         expect(index_post2.reload.section_order).to eq(1)
       end
@@ -170,7 +170,7 @@ RSpec.describe Api::V1::IndexPostsController do
         post_ids = [index_post3.id, index_post2.id, index_post1.id]
         api_login_as(user)
         post :reorder, params: { ordered_post_ids: post_ids, section_id: index_section1.id }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(422)
         expect(response.json['errors'][0]['message']).to eq('Posts must be from one specified section in the index, or no section')
         expect(index_post1.reload.section_order).to eq(0)
         expect(index_post2.reload.section_order).to eq(0)
@@ -190,7 +190,7 @@ RSpec.describe Api::V1::IndexPostsController do
         post_ids = [index_post2.id, index_post1.id]
         api_login_as(user)
         post :reorder, params: { ordered_post_ids: post_ids, section_id: 0 }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(422)
         expect(response.json['errors'][0]['message']).to eq('Posts must be from one specified section in the index, or no section')
         expect(index_post1.reload.section_order).to eq(0)
         expect(index_post2.reload.section_order).to eq(1)
@@ -212,7 +212,7 @@ RSpec.describe Api::V1::IndexPostsController do
         post_ids = [index_post3.id, index_post2.id]
         api_login_as(user)
         post :reorder, params: { ordered_post_ids: post_ids, section_id: index_section1.id }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(422)
         expect(response.json['errors'][0]['message']).to eq('Posts must be from one specified section in the index, or no section')
         expect(index_post1.reload.section_order).to eq(0)
         expect(index_post2.reload.section_order).to eq(0)
@@ -232,7 +232,7 @@ RSpec.describe Api::V1::IndexPostsController do
         post_ids = [index_post2.id, index_post1.id]
         api_login_as(user)
         post :reorder, params: { ordered_post_ids: post_ids, section_id: index_section.id }
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(422)
         expect(response.json['errors'][0]['message']).to eq('Posts must be from one specified section in the index, or no section')
         expect(index_post1.reload.section_order).to eq(0)
         expect(index_post2.reload.section_order).to eq(1)
@@ -250,7 +250,7 @@ RSpec.describe Api::V1::IndexPostsController do
         post_ids = [-1]
         api_login_as(user)
         post :reorder, params: { ordered_post_ids: post_ids, section_id: index_section.id }
-        expect(response).to have_http_status(:not_found)
+        expect(response).to have_http_status(404)
         expect(response.json['errors'][0]['message']).to eq('Some posts could not be found: -1')
       end
 

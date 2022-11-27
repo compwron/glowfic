@@ -2,7 +2,7 @@ RSpec.describe Api::V1::BoardSectionsController do
   describe "POST reorder" do
     it "requires login", :show_in_doc do
       post :reorder
-      expect(response).to have_http_status(:unauthorized)
+      expect(response).to have_http_status(401)
       expect(response.json['errors'][0]['message']).to eq("You must be logged in to view that page.")
     end
 
@@ -17,7 +17,7 @@ RSpec.describe Api::V1::BoardSectionsController do
 
       api_login
       post :reorder, params: { ordered_section_ids: section_ids }
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(403)
       expect(board_section1.reload.section_order).to eq(0)
       expect(board_section2.reload.section_order).to eq(1)
     end
@@ -54,7 +54,7 @@ RSpec.describe Api::V1::BoardSectionsController do
 
       api_login_as(board.creator)
       post :reorder, params: { ordered_section_ids: section_ids }
-      expect(response).to have_http_status(:not_found)
+      expect(response).to have_http_status(404)
       expect(response.json['errors'][0]['message']).to eq('Some sections could not be found: -1')
       expect(board_section1.reload.section_order).to eq(0)
       expect(board_section2.reload.section_order).to eq(1)

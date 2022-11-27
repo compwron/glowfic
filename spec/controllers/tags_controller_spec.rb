@@ -33,7 +33,7 @@ RSpec.describe TagsController do
       it "succeeds with type filter" do
         tags = create_tags
         get :index, params: { view: 'Setting' }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:tags)).to match_array(tags[-2..])
         expect(assigns(:page_title)).to eq('Settings')
       end
@@ -193,7 +193,7 @@ RSpec.describe TagsController do
         tag = create(:setting)
         tag.child_settings << create(:setting)
         get :show, params: { id: tag.id, view: 'settings' }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
       end
 
       it "succeeds with valid gallery tag" do

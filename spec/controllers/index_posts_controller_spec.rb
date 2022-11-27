@@ -35,7 +35,7 @@ RSpec.describe IndexPostsController do
       index = create(:index)
       login_as(index.user)
       get :new, params: { index_id: index.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
     end
   end
 
@@ -119,7 +119,7 @@ RSpec.describe IndexPostsController do
       index.posts << create(:post, user: index.user)
       login_as(index.user)
       get :edit, params: { id: index.index_posts.first.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq("Edit Post in Index")
     end
   end

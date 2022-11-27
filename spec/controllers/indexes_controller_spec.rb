@@ -2,13 +2,13 @@ RSpec.describe IndexesController do
   describe "GET index" do
     it "works logged out" do
       get :index
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
     end
 
     it "works logged in" do
       login
       get :index
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq("Indexes")
     end
 
@@ -36,7 +36,7 @@ RSpec.describe IndexesController do
     it "works logged in" do
       login
       get :new
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq("New Index")
     end
   end
@@ -58,7 +58,7 @@ RSpec.describe IndexesController do
     it "requires valid index" do
       login
       post :create, params: { index: {} }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(response).to render_template(:new)
       expect(flash[:error][:message]).to eq("Index could not be created.")
     end
@@ -91,19 +91,13 @@ RSpec.describe IndexesController do
 
     it "works logged out" do
       get :show, params: { id: index.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq(index.name)
     end
 
     it "works logged in" do
       index = create(:index, privacy: :private)
       login_as(index.user)
-      get :show, params: { id: index.id }
-      expect(response).to have_http_status(:ok)
-    end
-
-    it "works for reader account" do
-      login_as(create(:reader_user))
       get :show, params: { id: index.id }
       expect(response).to have_http_status(200)
     end
@@ -157,7 +151,7 @@ RSpec.describe IndexesController do
       index = create(:index)
       login_as(index.user)
       get :edit, params: { id: index.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq("Edit Index: #{index.name}")
     end
   end

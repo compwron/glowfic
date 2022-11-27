@@ -2,13 +2,13 @@ RSpec.describe UsersController do
   describe "GET index" do
     it "succeeds when logged out" do
       get :index
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
     end
 
     it "succeeds when logged in" do
       login
       get :index
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
     end
 
     it "does not return deleted users" do
@@ -34,7 +34,7 @@ RSpec.describe UsersController do
   describe "GET new" do
     it "succeeds when logged out" do
       get :new
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq('Sign Up')
       expect(controller.gon.min).to eq(User::MIN_USERNAME_LEN)
       expect(controller.gon.max).to eq(User::MAX_USERNAME_LEN)
@@ -457,13 +457,13 @@ RSpec.describe UsersController do
     it "works logged in" do
       login
       get :search
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:search_results)).to be_nil
     end
 
     it "works logged out" do
       get :search
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:search_results)).to be_nil
     end
 
@@ -476,7 +476,7 @@ RSpec.describe UsersController do
         create(:user, username: "#{user.username.upcase}c")
       end
       get :search, params: { commit: 'Search', username: 'b' }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:search_results)).to be_present
       expect(assigns(:search_results).count).to eq(6)
     end
@@ -517,7 +517,7 @@ RSpec.describe UsersController do
     it "handles invalid date" do
       login_as(user)
       get :output, params: { id: user.id, day: 'asdf' }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(flash[:error]).to eq('Please note that this page does not include edit history.')
       expect(assigns(:total)).to eq(0)
     end
@@ -525,7 +525,7 @@ RSpec.describe UsersController do
     it "handles out of range date" do
       login_as(user)
       get :output, params: { id: user.id, day: '2018-28-10' }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(flash[:error]).to eq('Please note that this page does not include edit history.')
       expect(assigns(:total)).to eq(0)
     end
@@ -539,7 +539,7 @@ RSpec.describe UsersController do
         get :output, params: { id: user.id }
       end
 
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(flash[:error]).to eq('Please note that this page does not include edit history.')
       expect(assigns(:total)).to eq(8)
     end
@@ -555,7 +555,7 @@ RSpec.describe UsersController do
       create(:post, user: user, content: 'not in word count')
 
       get :output, params: { id: user.id, day: day.to_s }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(flash[:error]).to eq('Please note that this page does not include edit history.')
       expect(assigns(:total)).to eq(8)
     end

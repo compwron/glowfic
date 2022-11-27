@@ -22,7 +22,7 @@ RSpec.describe MessagesController do
         deleted = create(:message, recipient: user)
         deleted.sender.archive
         get :index
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:view)).to eq('inbox')
         expect(assigns(:page_title)).to eq('Inbox')
         expect(assigns(:messages)).to match_array(messages)
@@ -35,7 +35,7 @@ RSpec.describe MessagesController do
         deleted = create(:message, sender: user)
         deleted.recipient.archive
         get :index, params: { view: 'outbox' }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:view)).to eq('outbox')
         expect(assigns(:page_title)).to eq('Outbox')
         expect(assigns(:messages)).to match_array(messages)
@@ -46,7 +46,7 @@ RSpec.describe MessagesController do
         login_as(user)
         message = create(:message, sender_id: 0, recipient: user)
         get :index, params: { view: 'inbox' }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:messages)).to match_array([message])
       end
     end
@@ -397,7 +397,7 @@ RSpec.describe MessagesController do
         message = create(:message)
         login_as(message.sender)
         get :show, params: { id: message.id }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:messages)).to eq([message])
         expect(message.reload.unread?).to eq(true)
       end
@@ -406,7 +406,7 @@ RSpec.describe MessagesController do
         message = create(:message)
         login_as(message.recipient)
         get :show, params: { id: message.id }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(assigns(:messages)).to eq([message])
         expect(message.reload.unread?).not_to eq(true)
       end
@@ -417,7 +417,7 @@ RSpec.describe MessagesController do
         subsequent = create(:message, sender: message.recipient, recipient: message.sender, parent: message, thread_id: message.id, unread: false)
         login_as(message.recipient)
         get :show, params: { id: subsequent.id }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
         expect(message.reload.unread?).not_to eq(true)
       end
     end
@@ -437,7 +437,7 @@ RSpec.describe MessagesController do
       subsequent = create(:message, sender: message.recipient, recipient: message.sender, parent: message, thread_id: message.id, unread: false)
       login_as(message.recipient)
       get :show, params: { id: subsequent.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(message.reload.unread?).not_to eq(true)
       expect(sender.reload.unread?).to eq(true)
     end

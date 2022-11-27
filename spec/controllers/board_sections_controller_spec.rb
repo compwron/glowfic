@@ -109,7 +109,7 @@ RSpec.describe BoardSectionsController do
       create(:post)
       create(:post, board: board)
       get :show, params: { id: section.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq(section.name)
       expect(assigns(:posts)).to match_array(posts)
     end
@@ -138,7 +138,7 @@ RSpec.describe BoardSectionsController do
       post4.update!(section_order: 4)
       post5.update!(section_order: 5)
       get :show, params: { id: section.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq(section.name)
       expect(assigns(:posts)).to eq([post1, post2, post3, post4, post5])
     end
@@ -191,7 +191,7 @@ RSpec.describe BoardSectionsController do
       section = create(:board_section)
       login_as(section.board.creator)
       get :edit, params: { id: section.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq("Edit #{section.name}")
       expect(assigns(:board_section)).to eq(section)
     end

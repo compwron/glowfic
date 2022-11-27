@@ -16,7 +16,7 @@ RSpec.describe TemplatesController do
     it "works" do
       login
       get :new
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq("New Template")
       expect(assigns(:template)).to be_a_new_record
     end
@@ -153,7 +153,7 @@ RSpec.describe TemplatesController do
       template = create(:template)
       login_as(template.user)
       get :edit, params: { id: template.id }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
       expect(assigns(:page_title)).to eq("Edit Template: #{template.name}")
       expect(assigns(:template)).to eq(template)
     end
