@@ -47,10 +47,12 @@ class User < ApplicationRecord
   validate :username_not_reserved
 
   before_validation :encrypt_password, :strip_spaces
+  after_update :update_flat_posts
   after_save :clear_password
 
   scope :ordered, -> { order(username: :asc) }
   scope :active, -> { where(deleted: false) }
+  scope :full, -> { where.not(role_id: Permissible::READONLY).or(where(role_id: nil)) }
 
   nilify_blanks
 
@@ -96,13 +98,17 @@ class User < ApplicationRecord
   end
 
   def blocked_posts
-    blocks = Block.where(blocked_user_id: self.id).select(:blocking_user_id)
-    blocked_or_hidden_posts('blocked', blocks.where(hide_me: :posts), blocks.where(hide_me: :all))
+    blocks = Block.where(blocked_user_id: self.id)
+    posts_blockers = blocks.where(hide_me: :posts).pluck(:blocking_user_id)
+    full_blockers = blocks.where(hide_me: :all).pluck(:blocking_user_id)
+    blocked_or_hidden_posts('blocked', posts_blockers, full_blockers)
   end
 
   def hidden_posts
-    blocks = Block.where(blocking_user_id: self.id).select(:blocked_user_id)
-    blocked_or_hidden_posts('hidden', blocks.where(hide_them: :posts), blocks.where(hide_them: :all))
+    blocks = Block.where(blocking_user_id: self.id)
+    posts_blocked = blocks.where(hide_them: :posts).pluck(:blocked_user_id)
+    full_blocked = blocks.where(hide_them: :all).pluck(:blocked_user_id)
+    blocked_or_hidden_posts('hidden', posts_blocked, full_blocked)
   end
 
   private
@@ -112,10 +118,9 @@ class User < ApplicationRecord
   end
 
   def encrypt_password
-    if password.present?
-      self.salt_uuid ||= SecureRandom.uuid
-      self.crypted = crypted_password(password)
-    end
+    return unless password.present?
+    self.salt_uuid ||= SecureRandom.uuid
+    self.crypted = crypted_password(password)
   end
 
   def crypted_password(unencrypted)
@@ -151,14 +156,26 @@ class User < ApplicationRecord
 
   def blocked_or_hidden_posts(keyword, post_user_ids, full_user_ids)
     Rails.cache.fetch(Block.cache_string_for(self.id, keyword), expires_in: 1.month) do
+      all_user_ids = (post_user_ids + full_user_ids).uniq
       post_ids = Post.unscoped.where(
         authors_locked: true,
-        id: Post::Author.where(user_id: post_user_ids).select(:post_id),
+        id: Post::Author.where(user_id: all_user_ids).select(:post_id),
       ).pluck(:id)
-      post_ids += Post::Author.where(user_id: full_user_ids).pluck(:post_id)
-      post_ids.uniq!
-      post_ids -= Post::Author.where(user_id: self.id).pluck(:post_id) if keyword == 'blocked'
+      if keyword == 'blocked'
+        post_ids -= Post::Author.where(user_id: self.id).pluck(:post_id)
+      else
+        full_ids = Post::Author.where(user_id: full_user_ids).pluck(:post_id)
+        full_ids -= Post::Author.where(user_id: self.id).pluck(:post_id)
+        post_ids += full_ids
+        post_ids.uniq!
+      end
       post_ids
     end
+  end
+
+  def update_flat_posts
+    return unless saved_change_to_username? || saved_change_to_deleted?
+    post_ids = Post::Author.where(user_id: id).pluck(:post_id)
+    post_ids.each { |id| GenerateFlatPostJob.enqueue(id) }
   end
 end

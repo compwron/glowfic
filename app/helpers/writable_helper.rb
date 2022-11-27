@@ -24,7 +24,7 @@ module WritableHelper
   def has_edit_audits?(audits, written)
     return false unless written.id.present?
     if written.is_a?(Post)
-      count = audits[:post]
+      count = audits.fetch(:post, 0)
     else
       count = audits.fetch(written.id, 0)
     end
@@ -50,13 +50,13 @@ module WritableHelper
     if paragraphs.empty?
       content_tag(wrapper_tag, nil)
     else
-      paragraphs.map! { |paragraph|
+      paragraphs.map! do |paragraph|
         if paragraph.empty?
           content_tag(wrapper_tag, '&nbsp;'.html_safe)
         else
           content_tag(wrapper_tag, raw(paragraph))
         end
-      }.join("\n\n").html_safe
+      end.join("\n\n").html_safe
     end
   end
 

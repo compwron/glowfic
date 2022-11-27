@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 class IndexPostsController < ApplicationController
   before_action :login_required
+  before_action :readonly_forbidden
   before_action :find_model, only: [:edit, :update, :destroy]
 
   def new
@@ -84,9 +85,8 @@ class IndexPostsController < ApplicationController
       redirect_to indexes_path and return
     end
 
-    unless @index_post.index.editable_by?(current_user)
-      flash[:error] = "You do not have permission to edit this index."
-      redirect_to @index_post.index and return
-    end
+    return if @index_post.index.editable_by?(current_user)
+    flash[:error] = "You do not have permission to edit this index."
+    redirect_to @index_post.index
   end
 end

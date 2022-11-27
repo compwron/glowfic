@@ -3,11 +3,12 @@ class BoardsController < ApplicationController
   before_action :login_required, except: [:index, :show, :search]
   before_action :find_model, only: [:show, :edit, :update, :destroy]
   before_action :editor_setup, only: [:new, :edit]
-  before_action :require_permission, only: [:edit, :update, :destroy]
+  before_action :require_create_permission, only: [:new, :create]
+  before_action :require_edit_permission, only: [:edit, :update, :destroy]
 
   def index
     if params[:user_id].present?
-      unless (@user = User.active.find_by_id(params[:user_id]))
+      unless (@user = User.active.full.find_by_id(params[:user_id]))
         flash[:error] = "User could not be found."
         redirect_to root_path and return
       end
@@ -160,17 +161,21 @@ class BoardsController < ApplicationController
   end
 
   def find_model
-    unless (@board = Board.find_by_id(params[:id]))
-      flash[:error] = "Continuity could not be found."
-      redirect_to continuities_path and return
-    end
+    return if (@board = Board.find_by_id(params[:id]))
+    flash[:error] = "Continuity could not be found."
+    redirect_to continuities_path
   end
 
-  def require_permission
-    unless @board.editable_by?(current_user)
-      flash[:error] = "You do not have permission to edit that continuity."
-      redirect_to continuity_path(@board) and return
-    end
+  def require_create_permission
+    return unless current_user.read_only?
+    flash[:error] = "You do not have permission to create continuities."
+    redirect_to continuities_path
+  end
+
+  def require_edit_permission
+    return if @board.editable_by?(current_user)
+    flash[:error] = "You do not have permission to edit that continuity."
+    redirect_to continuity_path(@board)
   end
 
   def boards_from_relation(relation)
@@ -202,6 +207,6 @@ class BoardsController < ApplicationController
   end
 
   def permitted_params
-    params.fetch(:board, {}).permit(:name, :description, coauthor_ids: [], cameo_ids: [])
+    params.fetch(:board, {}).permit(:name, :description, :authors_locked, coauthor_ids: [], cameo_ids: [])
   end
 end

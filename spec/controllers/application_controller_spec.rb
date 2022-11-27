@@ -103,13 +103,6 @@ RSpec.describe ApplicationController do
       expect(fetched_posts).not_to respond_to(:total_pages)
     end
 
-    it "skips visibility check if there are more than 25 posts" do
-      expect_any_instance_of(Post).not_to receive(:visible_to?)
-      relation = Post.where(id: default_post_ids)
-      fetched_posts = controller.send(:posts_from_relation, relation)
-      expect(fetched_posts.count).to eq(26) # number when querying the database – actual number returned is 25, due to pagination
-    end
-
     it "fetches correct authors, reply counts and content warnings" do
       post1 = create(:post)
       warning1 = create(:content_warning)
@@ -177,7 +170,7 @@ RSpec.describe ApplicationController do
 
       it "sets opened_ids and unread_ids properly" do
         other_user = create(:user)
-        time = Time.zone.now - 5.minutes
+        time = 5.minutes.ago
         unopened2, partread, read1, read2, hidden_unread, hidden_partread = posts = Timecop.freeze(time) do
           create(:post) # post; unopened1
           unopened2 = create(:post) # post, reply
@@ -277,8 +270,9 @@ RSpec.describe ApplicationController do
         hidden_post = create(:post, privacy: :private)
         public_post = create(:post, privacy: :public)
         conste_post = create(:post, privacy: :registered)
+        full_post = create(:post, privacy: :full_accounts)
 
-        relation = Post.where(id: [hidden_post.id, public_post.id, conste_post.id])
+        relation = Post.where(id: [hidden_post, public_post, conste_post, full_post].map(&:id))
         fetched_posts = controller.send(:posts_from_relation, relation)
         expect(fetched_posts).to match_array([public_post])
       end
@@ -341,35 +335,35 @@ RSpec.describe ApplicationController do
     it "redirects on valid requests" do
       ENV['DOMAIN_NAME'] ||= 'domaintest.host'
       get :index, params: { force_domain: true }
-      expect(response).to have_http_status(:moved_permanently)
+      expect(response).to have_http_status(301)
       expect(response).to redirect_to('https://domaintest.host/anonymous?force_domain=true')
     end
 
     it "does not redirect on post requests" do
       post :create, params: { force_domain: true }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
     end
 
     it "does not redirect unless forced" do
       get :index
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
     end
 
     it "does not redirect API requests" do
       get :index, params: { force_domain: true }, xhr: true
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
     end
 
     it "does not redirect glowfic.com requests" do
       request.host = 'glowfic.com'
       get :index, params: { force_domain: true }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
     end
 
     it "does not redirect staging requests" do
       request.host = 'glowfic-staging.herokuapp.com'
       get :index, params: { force_domain: true }
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(200)
     end
   end
 

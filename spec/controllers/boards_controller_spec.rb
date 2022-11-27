@@ -14,6 +14,12 @@ RSpec.describe BoardsController do
         expect(response.status).to eq(200)
       end
 
+      it "works for reader accounts" do
+        login_as(create(:reader_user))
+        get :index
+        expect(response).to have_http_status(200)
+      end
+
       it "sets correct variables" do
         user = create(:user)
         board1 = create(:board, creator_id: user.id)
@@ -43,6 +49,20 @@ RSpec.describe BoardsController do
       it "displays error if user id invalid and logged in" do
         login
         get :index, params: { user_id: -1 }
+        expect(flash[:error]).to eq('User could not be found.')
+        expect(response).to redirect_to(root_url)
+      end
+
+      it "requires specified user to be full user" do
+        user = create(:reader_user)
+        get :index, params: { user_id: user.id }
+        expect(flash[:error]).to eq('User could not be found.')
+        expect(response).to redirect_to(root_url)
+      end
+
+      it "requires specificed user to not be deleted" do
+        user = create(:user, deleted: true)
+        get :index, params: { user_id: user.id }
         expect(flash[:error]).to eq('User could not be found.')
         expect(response).to redirect_to(root_url)
       end
@@ -94,6 +114,13 @@ RSpec.describe BoardsController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      get :new
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("You do not have permission to create continuities.")
+    end
+
     it "succeeds when logged in" do
       login
       get :new
@@ -129,6 +156,13 @@ RSpec.describe BoardsController do
       post :create
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      post :create
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("You do not have permission to create continuities.")
     end
 
     it "requires valid params" do
@@ -176,6 +210,7 @@ RSpec.describe BoardsController do
           description: 'Test description',
           coauthor_ids: [user2.id],
           cameo_ids: [user3.id],
+          authors_locked: false,
         },
       }
       expect(response).to redirect_to(continuities_url)
@@ -188,10 +223,13 @@ RSpec.describe BoardsController do
       expect(board.description).to eq('Test description')
       expect(board.writers).to match_array([creator, user2])
       expect(board.cameos).to match_array([user3])
+      expect(board.authors_locked).to eq(false)
     end
   end
 
   describe "GET show" do
+    let(:board) { create(:board) }
+
     it "requires valid board" do
       get :show, params: { id: -1 }
       expect(response).to redirect_to(continuities_url)
@@ -199,34 +237,35 @@ RSpec.describe BoardsController do
     end
 
     it "succeeds with valid board" do
-      board = create(:board)
       get :show, params: { id: board.id }
       expect(response.status).to eq(200)
     end
 
     it "succeeds for logged in users with valid board" do
       login
-      board = create(:board)
       get :show, params: { id: board.id }
       expect(response.status).to eq(200)
     end
 
+    it "works for reader accounts" do
+      login_as(create(:reader_user))
+      get :show, params: { id: board.id }
+      expect(response).to have_http_status(200)
+    end
+
     it "only fetches the board's first 25 posts" do
-      board = create(:board)
       create_list(:post, 26, board: board)
       get :show, params: { id: board.id }
       expect(assigns(:posts).size).to eq(25)
     end
 
     it "orders the posts by tagged_at in unordered boards" do
-      board = create(:board)
       Array.new(3) { create(:post, board: board, tagged_at: Time.zone.now + rand(5..30).hours) }
       get :show, params: { id: board.id }
       expect(assigns(:posts)).to eq(assigns(:posts).sort_by(&:tagged_at).reverse)
     end
 
     it "orders the posts correctly in ordered boards" do
-      board = create(:board)
       section2 = create(:board_section, board: board)
       section1 = create(:board_section, board: board)
       section1.update!(section_order: 0)
@@ -274,6 +313,10 @@ RSpec.describe BoardsController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      skip "TODO Currently relies on inability to create continuities"
+    end
+
     it "requires valid board" do
       login
       get :edit, params: { id: -1 }
@@ -302,7 +345,7 @@ RSpec.describe BoardsController do
       coauthor = create(:user)
       board = create(:board, writers: [coauthor])
       sections = [create(:board_section, board: board), create(:board_section, board: board)]
-      posts = [create(:post, board: board, user: board.creator, tagged_at: Time.zone.now + 5.minutes), create(:post, user: coauthor, board: board)]
+      posts = [create(:post, board: board, user: board.creator, tagged_at: 5.minutes.from_now), create(:post, user: coauthor, board: board)]
       sections[0].update!(section_order: 1)
       sections[1].update!(section_order: 0)
       login_as(board.creator)
@@ -317,6 +360,10 @@ RSpec.describe BoardsController do
       put :update, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      skip "TODO Currently relies on inability to create continuities"
     end
 
     it "requires valid board" do
@@ -348,7 +395,7 @@ RSpec.describe BoardsController do
 
     it "succeeds" do
       user = create(:user)
-      board = create(:board, creator: user)
+      board = create(:board, creator: user, authors_locked: false)
       name = board.name
       login_as(user)
       user2 = create(:user)
@@ -360,6 +407,7 @@ RSpec.describe BoardsController do
           description: 'New description',
           coauthor_ids: [user2.id],
           cameo_ids: [user3.id],
+          authors_locked: true,
         },
       }
       expect(response).to redirect_to(continuity_url(board))
@@ -369,6 +417,7 @@ RSpec.describe BoardsController do
       expect(board.description).to eq('New description')
       expect(board.writers).to match_array([user, user2])
       expect(board.cameos).to match_array([user3])
+      expect(board.authors_locked).to eq(true)
     end
   end
 
@@ -377,6 +426,10 @@ RSpec.describe BoardsController do
       delete :destroy, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      skip "TODO Currently relies on inability to create continuities"
     end
 
     it "requires valid board" do
@@ -425,8 +478,14 @@ RSpec.describe BoardsController do
       board = create(:board)
       post = create(:post, user: board.creator, board: board)
       login_as(board.creator)
-      expect_any_instance_of(Board).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+
+      allow(Board).to receive(:find_by).and_call_original
+      allow(Board).to receive(:find_by).with(id: board.id.to_s).and_return(board)
+      allow(board).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+      expect(board).to receive(:destroy!)
+
       delete :destroy, params: { id: board.id }
+
       expect(response).to redirect_to(continuity_url(board))
       expect(flash[:error]).to eq({ message: "Continuity could not be deleted.", array: [] })
       expect(post.reload.board).to eq(board)
@@ -434,10 +493,19 @@ RSpec.describe BoardsController do
   end
 
   describe "POST mark" do
+    let(:board) { create(:board) }
+
     it "requires login" do
       post :mark
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "works for reader accounts" do
+      login_as(create(:reader_user))
+      post :mark, params: { board_id: board.id, commit: "Mark Read" }
+      expect(response).to redirect_to(unread_posts_url)
+      expect(flash[:success]).to eq("#{board.name} marked as read.")
     end
 
     it "requires board id" do
@@ -462,7 +530,6 @@ RSpec.describe BoardsController do
     end
 
     it "successfully marks board read" do
-      board = create(:board)
       user = create(:user)
       login_as(user)
       now = Time.zone.now
@@ -475,7 +542,6 @@ RSpec.describe BoardsController do
 
     it "marks extant post views read" do
       now = Time.zone.now
-      board = create(:board)
       user = create(:user)
       read_post = create(:post, user: user, board: board)
       read_post.mark_read(user, at_time: now - 1.day, force: true)
@@ -495,7 +561,6 @@ RSpec.describe BoardsController do
     end
 
     it "successfully ignores board" do
-      board = create(:board)
       user = create(:user)
       login_as(user)
       expect(board).not_to be_ignored_by(user)
@@ -513,6 +578,12 @@ RSpec.describe BoardsController do
         expect(response).to have_http_status(:ok)
         expect(assigns(:page_title)).to eq('Search Continuities')
         expect(assigns(:search_results)).to be_nil
+      end
+
+      it "works for reader accounts" do
+        login_as(create(:reader_user))
+        get :search
+        expect(response).to have_http_status(200)
       end
 
       it "works logged in" do
@@ -537,6 +608,15 @@ RSpec.describe BoardsController do
         create(:board, name: 'unrelated')
         get :search, params: { commit: true, name: 'stars' }
         expect(assigns(:search_results)).to match_array([board1, board2])
+      end
+
+      it "filters by name acronym" do
+        board1 = create(:board, name: 'contains stars')
+        board2 = create(:board, name: 'contains Suns')
+        board3 = create(:board, name: 'Case starlight')
+        create(:board, name: 'unrelated')
+        get :search, params: { commit: true, name: 'cs', abbrev: true }
+        expect(assigns(:search_results)).to match_array([board1, board2, board3])
       end
 
       it "filters by authors" do

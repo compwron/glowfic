@@ -6,14 +6,18 @@ class CharactersController < ApplicationController
   before_action :login_required, except: [:index, :show, :facecasts, :search]
   before_action :find_model, only: [:show, :edit, :update, :duplicate, :destroy, :replace, :do_replace]
   before_action :find_group, only: :index
-  before_action :require_permission, only: [:edit, :update, :duplicate, :replace, :do_replace]
+  before_action :require_create_permission, only: [:new, :create]
+  before_action :require_edit_permission, only: [:edit, :update, :duplicate, :replace, :do_replace]
   before_action :editor_setup, only: [:new, :edit]
 
   def index
-    (return if login_required) unless params[:user_id].present?
+    unless params[:user_id].present?
+      return if login_required
+      return if readonly_forbidden
+    end
 
     @user = if params[:user_id].present?
-      User.active.find_by_id(params[:user_id])
+      User.active.full.find_by_id(params[:user_id])
     else
       current_user
     end
@@ -61,7 +65,7 @@ class CharactersController < ApplicationController
 
   def show
     @page_title = @character.name
-    @posts = posts_from_relation(@character.recent_posts)
+    @posts = posts_from_relation(@character.recent_posts) if params[:view] == 'posts'
     @meta_og = og_data
     use_javascript('characters/show') if @character.user_id == current_user.try(:id)
   end
@@ -71,16 +75,16 @@ class CharactersController < ApplicationController
   end
 
   def update
+    if current_user.id != @character.user_id && params.fetch(:character, {}).fetch(:audit_comment, nil).blank?
+      flash[:error] = "You must provide a reason for your moderator edit."
+      editor_setup
+      render :edit and return
+    end
+
     begin
       Character.transaction do
         @character.assign_attributes(permitted_params)
         build_template
-
-        if current_user.id != @character.user_id && @character.audit_comment.blank?
-          flash[:error] = "You must provide a reason for your moderator edit."
-          editor_setup
-          render :edit and return
-        end
 
         @character.settings = process_tags(Setting, obj_param: :character, id_param: :setting_ids)
         @character.gallery_groups = process_tags(GalleryGroup, obj_param: :character, id_param: :gallery_group_ids)
@@ -153,27 +157,19 @@ class CharactersController < ApplicationController
       .joins(:user)
       .left_outer_joins(:template)
       .pluck('characters.id, characters.name, characters.pb, users.id, users.username, templates.id, templates.name')
-    @pbs = []
 
-    pb_struct = Struct.new(:item_id, :item_name, :type, :pb, :user_id, :username)
-    chars.each do |dataset|
-      id, name, pb, user_id, username, template_id, nickname = dataset
-      if template_id.present?
-        item_id, item_name, type = template_id, nickname, Template
+    @pbs = chars.map { |data| Character.facecast_for(data) }.uniq
+
+    case params[:sort]
+      when "name"
+        keys = [:name, :pb, :username]
+      when "writer"
+        keys = [:username, :pb, :name]
       else
-        item_id, item_name, type = id, name, Character
-      end
-      @pbs << pb_struct.new(item_id, item_name, type, pb, user_id, username)
+        keys = [:pb, :username, :name]
     end
-    @pbs.uniq!
 
-    if params[:sort] == "name"
-      @pbs.sort_by! { |x| [x[:item_name].downcase, x[:pb].downcase, x[:username].downcase] }
-    elsif params[:sort] == "writer"
-      @pbs.sort_by! { |x| [x[:username].downcase, x[:pb].downcase, x[:item_name].downcase] }
-    else
-      @pbs.sort_by! { |x| [x[:pb].downcase, x[:username].downcase, x[:item_name].downcase] }
-    end
+    @pbs.sort_by! { |x| x.to_h.values_at(*keys).map(&:downcase) }
   end
 
   def replace
@@ -303,13 +299,12 @@ class CharactersController < ApplicationController
   private
 
   def find_model
-    unless (@character = Character.find_by_id(params[:id]))
-      flash[:error] = "Character could not be found."
-      if logged_in?
-        redirect_to user_characters_path(current_user)
-      else
-        redirect_to root_path
-      end
+    return if (@character = Character.find_by_id(params[:id]))
+    flash[:error] = "Character could not be found."
+    if logged_in?
+      redirect_to user_characters_path(current_user)
+    else
+      redirect_to root_path
     end
   end
 
@@ -318,11 +313,16 @@ class CharactersController < ApplicationController
     @group = CharacterGroup.find_by_id(params[:group_id])
   end
 
-  def require_permission
-    unless @character.editable_by?(current_user)
-      flash[:error] = "You do not have permission to edit that character."
-      redirect_to user_characters_path(current_user) and return
-    end
+  def require_create_permission
+    return unless current_user.read_only?
+    flash[:error] = "You do not have permission to create characters."
+    redirect_to continuities_path and return
+  end
+
+  def require_edit_permission
+    return if @character.editable_by?(current_user)
+    flash[:error] = "You do not have permission to edit that character."
+    redirect_to user_characters_path(current_user)
   end
 
   def editor_setup

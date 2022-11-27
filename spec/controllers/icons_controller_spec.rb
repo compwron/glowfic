@@ -8,6 +8,13 @@ RSpec.describe IconsController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      delete :delete_multiple
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
+    end
+
     it "requires icons" do
       user_id = login
       delete :delete_multiple
@@ -159,6 +166,8 @@ RSpec.describe IconsController do
   end
 
   describe "GET show" do
+    let(:icon) { create(:icon) }
+
     it "requires valid icon logged out" do
       get :show, params: { id: -1 }
       expect(response).to redirect_to(root_url)
@@ -173,7 +182,6 @@ RSpec.describe IconsController do
     end
 
     it "successfully loads when logged out" do
-      icon = create(:icon)
       get :show, params: { id: icon.id }
       expect(response).to have_http_status(:ok)
       expect(assigns(:posts)).to be_nil
@@ -181,10 +189,15 @@ RSpec.describe IconsController do
 
     it "successfully loads when logged in" do
       login
-      icon = create(:icon)
       get :show, params: { id: icon.id }
       expect(response).to have_http_status(:ok)
       expect(assigns(:posts)).to be_nil
+    end
+
+    it "successfully loads as reader" do
+      login_as(create(:reader_user))
+      get :show, params: { id: icon.id }
+      expect(response).to have_http_status(200)
     end
 
     it "calculates OpenGraph meta" do
@@ -234,10 +247,10 @@ RSpec.describe IconsController do
       it "orders posts correctly" do
         post3 = create(:post, icon: icon, user: icon.user)
         post4 = create(:post, icon: icon, user: icon.user)
-        post.update!(tagged_at: Time.zone.now - 5.minutes)
-        other_post.update!(tagged_at: Time.zone.now - 2.minutes)
-        post3.update!(tagged_at: Time.zone.now - 8.minutes)
-        post4.update!(tagged_at: Time.zone.now - 4.minutes)
+        post.update!(tagged_at: 5.minutes.ago)
+        other_post.update!(tagged_at: 2.minutes.ago)
+        post3.update!(tagged_at: 8.minutes.ago)
+        post4.update!(tagged_at: 4.minutes.ago)
         get :show, params: { id: icon.id, view: 'posts' }
         expect(assigns(:posts)).to eq([other_post, post4, post, post3])
       end
@@ -272,24 +285,34 @@ RSpec.describe IconsController do
       let(:reply) { create(:reply, icon: icon, user: icon.user, post: create(:post)) }
       let(:private_post) { create(:post, icon: icon, user: icon.user, privacy: :private) }
       let(:registered_post) { create(:post, icon: icon, user: icon.user, privacy: :registered) }
+      let(:full_post) { create(:post, icon: icon, user: icon.user, privacy: :full_accounts) }
 
       before(:each) do
         create(:reply, post: post, user: icon.user, icon: icon)
         reply
         private_post
         registered_post
+        full_post
       end
 
       it "fetches correct counts for icon owner" do
         login_as(icon.user)
         get :show, params: { id: icon.id }
-        expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(200)
+        expect(assigns(:times_used)).to eq(6)
+        expect(assigns(:posts_used)).to eq(5)
+      end
+
+      it "fetches correct counts when logged in as full user" do
+        login
+        get :show, params: { id: icon.id }
+        expect(response).to have_http_status(200)
         expect(assigns(:times_used)).to eq(5)
         expect(assigns(:posts_used)).to eq(4)
       end
 
-      it "fetches correct counts when logged in" do
-        login
+      it "fetches correct counts when logged in as reader account" do
+        login_as(create(:reader_user))
         get :show, params: { id: icon.id }
         expect(response).to have_http_status(:ok)
         expect(assigns(:times_used)).to eq(4)
@@ -310,6 +333,13 @@ RSpec.describe IconsController do
       get :edit, params: { id: -1 }
       expect(response.status).to eq(302)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      get :edit, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "requires valid icon" do
@@ -341,6 +371,13 @@ RSpec.describe IconsController do
       put :update, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      put :update, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "requires valid icon" do
@@ -386,6 +423,13 @@ RSpec.describe IconsController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      delete :destroy, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
+    end
+
     it "requires valid icon" do
       user_id = login
       delete :destroy, params: { id: -1 }
@@ -428,8 +472,14 @@ RSpec.describe IconsController do
       icon = create(:icon)
       post = create(:post, user: icon.user, icon: icon)
       login_as(icon.user)
-      expect_any_instance_of(Icon).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+
+      allow(Icon).to receive(:find_by).and_call_original
+      allow(Icon).to receive(:find_by).with(id: icon.id.to_s).and_return(icon)
+      allow(icon).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+      expect(icon).to receive(:destroy!)
+
       delete :destroy, params: { id: icon.id }
+
       expect(response).to redirect_to(icon_url(icon))
       expect(flash[:error]).to eq({ message: "Icon could not be deleted.", array: [] })
       expect(post.reload.icon).to eq(icon)
@@ -441,6 +491,13 @@ RSpec.describe IconsController do
       post :avatar, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      post :avatar, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "requires valid icon" do
@@ -463,7 +520,11 @@ RSpec.describe IconsController do
       expect(user.avatar_id).to be_nil
       login_as(user)
 
-      expect_any_instance_of(User).to receive(:update).and_return(false)
+      allow(User).to receive(:find_by).and_call_original
+      allow(User).to receive(:find_by).with(id: user.id).and_return(user)
+      allow(user).to receive(:update).and_return(false)
+      expect(user).to receive(:update)
+
       post :avatar, params: { id: icon.id }
 
       expect(response).to redirect_to(icon_url(icon))
@@ -490,6 +551,13 @@ RSpec.describe IconsController do
       get :replace, params: { id: create(:icon).id }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      get :replace, params: { id: create(:icon).id }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "requires valid icon" do
@@ -562,6 +630,13 @@ RSpec.describe IconsController do
       post :do_replace, params: { id: create(:icon).id }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      post :do_replace, params: { id: create(:icon).id }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "requires valid icon" do

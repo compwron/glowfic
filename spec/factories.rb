@@ -20,6 +20,10 @@ FactoryBot.define do
     factory :importing_user do
       role_id { 3 }
     end
+
+    factory :reader_user do
+      role_id { 5 }
+    end
   end
 
   factory :board do
@@ -56,7 +60,7 @@ FactoryBot.define do
     end
 
     after(:create) do |post, evaluator|
-      evaluator.num_replies.times do create(:reply, user: post.user, post: post) end
+      evaluator.num_replies.times { create(:reply, user: post.user, post: post) }
     end
   end
 

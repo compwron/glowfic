@@ -4,7 +4,8 @@ class TemplatesController < ApplicationController
 
   before_action :login_required, except: [:show, :search]
   before_action :find_model, only: [:show, :destroy, :edit, :update]
-  before_action :require_permission, only: [:edit, :update, :destroy]
+  before_action :require_create_permission, only: [:new, :create]
+  before_action :require_edit_permission, only: [:edit, :update, :destroy]
   before_action :editor_setup, only: [:new, :edit]
 
   def new
@@ -91,17 +92,22 @@ class TemplatesController < ApplicationController
   end
 
   def find_model
-    unless (@template = Template.find_by_id(params[:id]))
-      flash[:error] = "Template could not be found."
-      if logged_in?
-        redirect_to user_characters_path(current_user)
-      else
-        redirect_to root_path
-      end
+    return if (@template = Template.find_by_id(params[:id]))
+    flash[:error] = "Template could not be found."
+    if logged_in?
+      redirect_to user_characters_path(current_user)
+    else
+      redirect_to root_path
     end
   end
 
-  def require_permission
+  def require_create_permission
+    return unless current_user.read_only?
+    flash[:error] = "You do not have permission to create templates."
+    redirect_to continuities_path and return
+  end
+
+  def require_edit_permission
     return true if @template.user_id == current_user.id
     flash[:error] = "That is not your template."
     redirect_to user_characters_path(current_user)

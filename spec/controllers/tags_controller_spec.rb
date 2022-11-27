@@ -24,6 +24,12 @@ RSpec.describe TagsController do
         expect(assigns(:tags)).to match_array(tags)
       end
 
+      it "succeeds for reader accounts" do
+        login_as(create(:reader_user))
+        get :index
+        expect(response).to have_http_status(200)
+      end
+
       it "succeeds with type filter" do
         tags = create_tags
         get :index, params: { view: 'Setting' }
@@ -76,10 +82,29 @@ RSpec.describe TagsController do
   end
 
   describe "GET show" do
+    let(:tag) { create(:label) }
+
     it "requires valid tag" do
       get :show, params: { id: -1 }
       expect(response).to redirect_to(tags_url)
       expect(flash[:error]).to eq("Tag could not be found.")
+    end
+
+    it "works logged out" do
+      get :show, params: { id: tag.id }
+      expect(response).to have_http_status(200)
+    end
+
+    it "works for reader accounts" do
+      login_as(create(:reader_user))
+      get :show, params: { id: tag.id }
+      expect(response).to have_http_status(200)
+    end
+
+    it "works logged in" do
+      login
+      get :show, params: { id: tag.id }
+      expect(response).to have_http_status(200)
     end
 
     it "calculates OpenGraph meta for labels" do
@@ -258,6 +283,13 @@ RSpec.describe TagsController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      get :edit, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
+    end
+
     it "requires valid tag" do
       login
       get :edit, params: { id: -1 }
@@ -294,6 +326,13 @@ RSpec.describe TagsController do
       put :update, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      put :update, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "requires valid tag" do
@@ -347,6 +386,13 @@ RSpec.describe TagsController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      delete :destroy, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
+    end
+
     it "requires valid tag" do
       login
       delete :destroy, params: { id: -1 }
@@ -373,8 +419,14 @@ RSpec.describe TagsController do
     it "handles destroy failure" do
       tag = create(:label)
       login_as(tag.user)
-      expect_any_instance_of(Tag).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+
+      allow(Tag).to receive(:find_by).and_call_original
+      allow(Tag).to receive(:find_by).with(id: tag.id.to_s).and_return(tag)
+      allow(tag).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+      expect(tag).to receive(:destroy!)
+
       delete :destroy, params: { id: tag.id }
+
       expect(response).to redirect_to(tag_url(tag))
       expect(flash[:error]).to eq({ message: "Tag could not be deleted.", array: [] })
       expect(Tag.find_by(id: tag.id)).not_to be_nil

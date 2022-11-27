@@ -39,11 +39,13 @@ class UsersController < ApplicationController
     end
     @user.tos_version = User::CURRENT_TOS_VERSION
 
-    if params[:secret] != "ALLHAILTHECOIN"
+    if params[:addition].to_i != 14
       signup_prep
-      flash.now[:error] = "This is in beta. Please ask someone in the community for the (not very) secret beta code."
+      flash.now[:error] = "Please check your math and try again."
       render :new and return
     end
+
+    @user.role_id = Permissible::READONLY if params[:secret] != "ALLHAILTHECOIN"
 
     begin
       @user.save!
@@ -126,8 +128,8 @@ class UsersController < ApplicationController
     @day = calculate_day
     daystart = @day.beginning_of_day
     dayend = @day.end_of_day
-    @posts = Post.where(user: current_user).where('created_at between ? AND ?', daystart, dayend).pluck(:content)
-    @replies = Reply.where(user: current_user).where('created_at between ? AND ?', daystart, dayend).pluck(:content)
+    @posts = Post.where(user: current_user).where('created_at between ? AND ?', daystart, dayend).ordered_by_id.pluck(:content)
+    @replies = Reply.where(user: current_user).where('created_at between ? AND ?', daystart, dayend).order(post_id: :asc).ordered.pluck(:content)
 
     @total = @posts + @replies
     if @total.empty?
@@ -141,10 +143,9 @@ class UsersController < ApplicationController
   private
 
   def require_own_user
-    unless params[:id] == current_user.id.to_s
-      flash[:error] = "You do not have permission to edit that user."
-      redirect_to(continuities_path)
-    end
+    return if params[:id] == current_user.id.to_s
+    flash[:error] = "You do not have permission to edit that user."
+    redirect_to(continuities_path)
   end
 
   def signup_prep

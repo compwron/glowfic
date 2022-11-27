@@ -11,6 +11,12 @@ RSpec.describe IndexesController do
       expect(response).to have_http_status(:ok)
       expect(assigns(:page_title)).to eq("Indexes")
     end
+
+    it "works for reader account" do
+      login_as(create(:reader_user))
+      get :index
+      expect(response).to have_http_status(200)
+    end
   end
 
   describe "GET new" do
@@ -18,6 +24,13 @@ RSpec.describe IndexesController do
       get :new
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      get :new
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("You do not have permission to create indexes.")
     end
 
     it "works logged in" do
@@ -33,6 +46,13 @@ RSpec.describe IndexesController do
       post :create
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      post :create
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("You do not have permission to create indexes.")
     end
 
     it "requires valid index" do
@@ -54,6 +74,8 @@ RSpec.describe IndexesController do
   end
 
   describe "GET show" do
+    let(:index) { create(:index) }
+
     it "requires valid index" do
       get :show, params: { id: -1 }
       expect(response).to redirect_to(indexes_url)
@@ -68,7 +90,6 @@ RSpec.describe IndexesController do
     end
 
     it "works logged out" do
-      index = create(:index)
       get :show, params: { id: index.id }
       expect(response).to have_http_status(:ok)
       expect(assigns(:page_title)).to eq(index.name)
@@ -79,6 +100,12 @@ RSpec.describe IndexesController do
       login_as(index.user)
       get :show, params: { id: index.id }
       expect(response).to have_http_status(:ok)
+    end
+
+    it "works for reader account" do
+      login_as(create(:reader_user))
+      get :show, params: { id: index.id }
+      expect(response).to have_http_status(200)
     end
 
     it "orders sectionless posts correctly" do
@@ -99,6 +126,10 @@ RSpec.describe IndexesController do
       get :edit, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      skip "TODO relies on inability to create indexes"
     end
 
     it "requires valid index" do
@@ -130,6 +161,10 @@ RSpec.describe IndexesController do
       put :update, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      skip "TODO Currently relies on inability to create indexes"
     end
 
     it "requires valid index" do
@@ -174,6 +209,10 @@ RSpec.describe IndexesController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      skip "TODO Currently relies on inability to create indexes"
+    end
+
     it "requires valid index" do
       login
       delete :destroy, params: { id: -1 }
@@ -202,8 +241,14 @@ RSpec.describe IndexesController do
       index = create(:index)
       section = create(:index_section, index: index)
       login_as(index.user)
-      expect_any_instance_of(Index).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+
+      allow(Index).to receive(:find_by).and_call_original
+      allow(Index).to receive(:find_by).with(id: index.id.to_s).and_return(index)
+      allow(index).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+      expect(index).to receive(:destroy!)
+
       delete :destroy, params: { id: index.id }
+
       expect(response).to redirect_to(index_url(index))
       expect(flash[:error]).to eq({ message: "Index could not be deleted.", array: [] })
       expect(section.reload.index).to eq(index)

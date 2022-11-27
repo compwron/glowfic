@@ -10,9 +10,11 @@ RSpec.describe DailyReport do
       zone = data.first
       dst_day_params = data.last
       context name do
-        before(:each) { Time.zone = zone }
-
-        after(:each) { Time.zone = default_zone }
+        around(:each) do |example|
+          Time.use_zone(zone) do
+            example.run
+          end
+        end
 
         it "should work on a regular day" do
           time = Time.zone.local(2017, 1, 2, 10, 0) # 2017-01-02 10:00
@@ -71,22 +73,21 @@ RSpec.describe DailyReport do
     end
 
     it "calculates today posts with replies timestamp correctly" do
-      old = Time.zone
-      Time.zone = "Eastern Time (US & Canada)"
-      now = Time.zone.now.end_of_day - 1.hour # ensure no issues running near midnight
-      post = nil
+      Time.use_zone("Eastern Time (US & Canada)") do
+        now = Time.zone.now.end_of_day - 1.hour # ensure no issues running near midnight
+        post = nil
 
-      Timecop.freeze(now) do
-        post = create(:post)
+        Timecop.freeze(now) do
+          post = create(:post)
+        end
+
+        Timecop.freeze(now + 10.minutes) do
+          create(:reply, post: post, user: post.user)
+        end
+
+        report = DailyReport.new(now)
+        expect(report.posts.first.first_updated_at).to be_the_same_time_as(now)
       end
-
-      Timecop.freeze(now + 10.minutes) do
-        create(:reply, post: post, user: post.user)
-      end
-
-      report = DailyReport.new(now)
-      expect(report.posts.first.first_updated_at).to be_the_same_time_as(now)
-      Time.zone = old
     end
 
     it "does not perform time zone fuckery" do
@@ -147,7 +148,7 @@ RSpec.describe DailyReport do
   describe "#unread_date_for" do
     it "invalidates cache on view update" do
       user = create(:user)
-      date = Time.zone.now - 4.days
+      date = 4.days.ago
       later = date + 2.days
       Timecop.freeze(date) do
         DailyReport.mark_read(user, at_time: date.to_date)

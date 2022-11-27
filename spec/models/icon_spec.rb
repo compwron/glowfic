@@ -31,7 +31,7 @@ RSpec.describe Icon do
         icon = create(:uploaded_icon)
         dupe_icon = build(:icon, url: icon.url, s3_key: icon.s3_key, user: create(:user))
         expect(dupe_icon).not_to be_valid
-        expect(dupe_icon.url).to be nil
+        expect(dupe_icon.url).to be_nil
       end
 
       it "should set the url back to its previous url on update" do
@@ -131,12 +131,10 @@ RSpec.describe Icon do
   describe "#use_icon_host" do
     let(:asset_host) { "https://fake.cloudfront.net" }
 
-    before(:each) { @cached_host = ENV['ICON_HOST'] }
-
-    after(:each) { ENV['ICON_HOST'] = @cached_host }
+    before(:each) { allow(ENV).to receive(:fetch).and_call_original }
 
     it "does nothing unless asset host is present" do
-      ENV['ICON_HOST'] = nil
+      allow(ENV).to receive(:fetch).with('ICON_HOST', any_args).and_return(nil)
       icon = build(:icon, user: create(:user))
       url = "https://glowfic-bucket.s3.amazonaws.com/users%2F#{icon.user.id}%2Ficons%2Ffake_test.png"
       icon.s3_key = "users/#{icon.user_id}/icons/fake_test.png"
@@ -146,7 +144,7 @@ RSpec.describe Icon do
     end
 
     it "does nothing unless the icon is uploaded" do
-      ENV['ICON_HOST'] = asset_host
+      allow(ENV).to receive(:fetch).with('ICON_HOST', any_args).and_return(asset_host)
       icon = build(:icon, user: create(:user))
       url = "https://glowfic-bucket.s3.amazonaws.com/users%2F#{icon.user.id}%2Ficons%2Ffake_test.png"
       icon.s3_key = nil
@@ -156,7 +154,7 @@ RSpec.describe Icon do
     end
 
     it "does nothing unless the icon already has the asset host domain in it" do
-      ENV['ICON_HOST'] = asset_host
+      allow(ENV).to receive(:fetch).with('ICON_HOST', any_args).and_return(asset_host)
       icon = build(:icon, user: create(:user))
       url = "#{asset_host}/users%2F#{icon.user_id}%2Ficons%2Ffake_test.png"
       icon.s3_key = "users/#{icon.user_id}/icons/fake_test.png"
@@ -166,18 +164,82 @@ RSpec.describe Icon do
     end
 
     it "handles weird URL-less AWS edge case" do
-      ENV['ICON_HOST'] = asset_host
+      allow(ENV).to receive(:fetch).with('ICON_HOST', any_args).and_return(asset_host)
       icon = build(:uploaded_icon, url: '')
       expect(icon.save).to eq(false)
     end
 
     it "updates the s3 domain to the asset host domain" do
-      ENV['ICON_HOST'] = asset_host
+      allow(ENV).to receive(:fetch).with('ICON_HOST', any_args).and_return(asset_host)
       icon = build(:icon, user: create(:user))
       icon.url = "https://glowfic-bucket.s3.amazonaws.com/users%2F#{icon.user_id}%2Ficons%2Ffake_test.png"
       icon.s3_key = "users/#{icon.user_id}/icons/fake_test.png"
       icon.save!
       expect(icon.reload.url).to eq("#{asset_host}/users%2F#{icon.user_id}%2Ficons%2Ffake_test.png")
+    end
+  end
+
+  describe "#update_flat_posts" do
+    def update_uploaded_icon(icon)
+      icon.update!(
+        url: "https://d1anwqy6ci9o1i.cloudfront.net/users%2F#{user.id}%2Ficons%2Fnonsense-fakeimg-800.png",
+        s3_key: "users/#{user.id}/icons/nonsense-fakeimg-800.png",
+      )
+    end
+
+    def update_external_icon(icon)
+      icon.update!(url: "https://www.fakeicon.com/new_icon", s3_key: nil)
+    end
+
+    shared_examples "works" do
+      let(:post1) { create(:post, icon: icon, user: user) }
+      let(:post2) { create(:post, unjoined_authors: [user]) }
+      let(:reply) { create(:reply, icon: icon, post: post2, user: user) }
+
+      before(:each) do
+        perform_enqueued_jobs do
+          post1
+          reply
+        end
+      end
+
+      it "updates posts on update to external icon" do
+        update_external_icon(icon)
+        expect(GenerateFlatPostJob).to have_been_enqueued.with(post1.id).on_queue('high')
+        expect(GenerateFlatPostJob).to have_been_enqueued.with(post2.id).on_queue('high')
+      end
+
+      it "updates posts on update to uploaded icon" do
+        update_uploaded_icon(icon)
+        expect(GenerateFlatPostJob).to have_been_enqueued.with(post1.id).on_queue('high')
+        expect(GenerateFlatPostJob).to have_been_enqueued.with(post2.id).on_queue('high')
+      end
+
+      it "updates posts on keyword edit" do
+        icon.update!(keyword: 'new')
+        expect(GenerateFlatPostJob).to have_been_enqueued.with(post1.id).on_queue('high')
+        expect(GenerateFlatPostJob).to have_been_enqueued.with(post2.id).on_queue('high')
+      end
+
+      it "does not update posts on credit edit" do
+        icon.update!(credit: 'new')
+        expect(GenerateFlatPostJob).not_to have_been_enqueued.with(post1.id)
+        expect(GenerateFlatPostJob).not_to have_been_enqueued.with(post2.id)
+      end
+    end
+
+    context "with uploaded icons" do
+      let(:user) { create(:user) }
+      let(:icon) { create(:uploaded_icon, user: user) }
+
+      include_examples "works"
+    end
+
+    context "with external icons" do
+      let(:user) { create(:user) }
+      let(:icon) { create(:icon, user: user) }
+
+      include_examples "works"
     end
   end
 end

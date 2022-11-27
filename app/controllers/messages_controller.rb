@@ -1,26 +1,33 @@
 # frozen_string_literal: true
 class MessagesController < ApplicationController
   before_action :login_required
+  before_action :readonly_forbidden
   before_action :editor_setup, only: :new
 
   def index
     blocked_ids = Block.where(blocking_user: current_user).pluck(:blocked_user_id)
+
+    includes = []
     if params[:view] == 'outbox'
       @page_title = 'Outbox'
       from_table = current_user.sent_messages.where(visible_outbox: true).ordered_by_thread.select('distinct on (thread_id) messages.*')
       from_table = from_table.where.not(recipient_id: blocked_ids).joins(:recipient).where.not(users: { deleted: true })
+      includes << :recipient
     else
       @page_title = 'Inbox'
       from_table = current_user.messages.where(visible_inbox: true).ordered_by_thread.select('distinct on (thread_id) messages.*')
       from_table = from_table.where.not(sender_id: blocked_ids).left_outer_joins(:sender).where('users.deleted IS NULL OR users.deleted = false')
+      includes << :sender
     end
-    @messages = Message.from(from_table).select('*').order('subquery.id desc').paginate(page: page)
+    @messages = Message.from(from_table, "messages").joins(:first_thread)
+      .select('*', 'first_threads_messages.subject as thread_subject')
+      .includes(*includes).order('messages.id desc').paginate(page: page)
     @view = @page_title.downcase
   end
 
   def new
     @message = Message.new
-    recipient = User.active.find_by_id(params[:recipient_id])
+    recipient = User.active.full.find_by_id(params[:recipient_id])
     @message.recipient = recipient unless recipient && current_user.has_interaction_blocked?(recipient)
     @page_title = 'Compose Message'
   end
@@ -28,6 +35,7 @@ class MessagesController < ApplicationController
   def create
     @message = Message.new(permitted_params)
     @message.sender = current_user
+    @message.recipient = nil if @message.recipient&.read_only?
     set_message_parent(params[:parent_id]) if params[:parent_id].present?
 
     if params[:button_preview]
@@ -72,7 +80,7 @@ class MessagesController < ApplicationController
     @page_title = message.unempty_subject
     @box = message.box(current_user)
 
-    @messages = Message.where(thread_id: message.thread_id).ordered_by_id
+    @messages = Message.where(thread_id: message.thread_id).includes(:sender).ordered_by_id
     if @messages.any? { |m| m.recipient_id == current_user.id && m.unread? }
       @messages.each do |m|
         next unless m.unread?
@@ -81,7 +89,7 @@ class MessagesController < ApplicationController
       end
     end
     @message = Message.new
-    set_message_parent(message.last_in_thread)
+    set_message_parent(message.last_in_thread.id)
     editor_setup
   end
 
@@ -124,16 +132,15 @@ class MessagesController < ApplicationController
 
   def editor_setup
     use_javascript('messages')
-    unless @message.try(:parent)
-      recent_ids = Message.where(sender_id: current_user.id).order(Arel.sql('MAX(id) desc')).limit(5).group(:recipient_id).pluck(:recipient_id)
-      base_users = User.active.where.not(id: [current_user.id] + current_user.user_ids_blocked_interaction)
-      recents = base_users.where(id: recent_ids).pluck(:username, :id).sort_by { |x| recent_ids.index(x[1]) }
-      users = base_users.ordered.pluck(:username, :id)
-      @select_items = if recents.present?
-        { :'Recently messaged' => recents, :'Other users' => users }
-      else
-        { Users: users }
-      end
+    return if @message.try(:parent)
+    recent_ids = Message.where(sender_id: current_user.id).order(Arel.sql('MAX(id) desc')).limit(5).group(:recipient_id).pluck(:recipient_id)
+    base_users = User.active.full.where.not(id: [current_user.id] + current_user.user_ids_blocked_interaction)
+    recents = base_users.where(id: recent_ids).pluck(:username, :id).sort_by { |x| recent_ids.index(x[1]) }
+    users = base_users.ordered.pluck(:username, :id)
+    @select_items = if recents.present?
+      { :'Recently messaged' => recents, :'Other users' => users }
+    else
+      { Users: users }
     end
   end
 

@@ -8,6 +8,13 @@ RSpec.describe AliasesController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      get :new, params: { character_id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("You do not have permission to create aliases.")
+    end
+
     it "requires valid character" do
       user_id = login
       get :new, params: { character_id: -1 }
@@ -41,6 +48,13 @@ RSpec.describe AliasesController do
       post :create, params: { character_id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      post :create, params: { character_id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("You do not have permission to create aliases.")
     end
 
     it "requires valid character" do
@@ -104,6 +118,13 @@ RSpec.describe AliasesController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      delete :destroy, params: { id: -1, character_id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("You do not have permission to create aliases.")
+    end
+
     it "requires valid character" do
       user_id = login
       delete :destroy, params: { id: -1, character_id: -1 }
@@ -157,8 +178,14 @@ RSpec.describe AliasesController do
       calias = create(:alias)
       reply = create(:reply, user: calias.character.user, character: calias.character, character_alias: calias)
       login_as(calias.character.user)
-      expect_any_instance_of(CharacterAlias).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+
+      allow(CharacterAlias).to receive(:find_by).and_call_original
+      allow(CharacterAlias).to receive(:find_by).with(id: calias.id.to_s).and_return(calias)
+      allow(calias).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+      expect(calias).to receive(:destroy!)
+
       delete :destroy, params: { id: calias.id, character_id: calias.character.id }
+
       expect(response).to redirect_to(edit_character_path(calias.character))
       expect(flash[:error]).to eq({ message: "Alias could not be deleted.", array: [] })
       expect(reply.reload.character_alias).to eq(calias)

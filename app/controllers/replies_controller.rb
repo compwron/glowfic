@@ -5,7 +5,8 @@ class RepliesController < WritableController
   before_action :login_required, except: [:search, :show, :history]
   before_action :find_model, only: [:show, :history, :edit, :update, :destroy]
   before_action :editor_setup, only: [:edit]
-  before_action :require_permission, only: [:edit, :update]
+  before_action :require_create_permission, only: [:create]
+  before_action :require_edit_permission, only: [:edit, :update]
 
   def search
     @page_title = 'Search Replies'
@@ -88,11 +89,11 @@ class RepliesController < WritableController
 
     @audits = []
 
-    unless params[:condensed]
-      @search_results = @search_results
-        .select('icons.keyword, icons.url')
-        .left_outer_joins(:icon)
-    end
+    return if params[:condensed]
+
+    @search_results = @search_results
+      .select('icons.keyword, icons.url')
+      .left_outer_joins(:icon)
   end
 
   def create
@@ -234,6 +235,7 @@ class RepliesController < WritableController
     end
 
     new_reply = Reply.new(audit.audited_changes)
+    new_reply.created_at = Audited::Audit.order(id: :asc).find_by(action: 'create', auditable_id: params[:id]).created_at
     unless new_reply.editable_by?(current_user)
       flash[:error] = "You do not have permission to modify this post."
       redirect_to post_path(new_reply.post) and return
@@ -275,18 +277,23 @@ class RepliesController < WritableController
     @page_title = @post.subject
   end
 
-  def require_permission
-    unless @reply.editable_by?(current_user)
-      flash[:error] = "You do not have permission to modify this post."
-      redirect_to post_path(@reply.post)
-    end
+  def require_create_permission
+    return unless current_user.read_only?
+    flash[:error] = "You do not have permission to create replies."
+    redirect_to continuities_path and return
+  end
+
+  def require_edit_permission
+    return if @reply.editable_by?(current_user)
+    flash[:error] = "You do not have permission to modify this reply."
+    redirect_to post_path(@reply.post)
   end
 
   def preview(written)
     @written = written
     @post = @written.post
     @written.user = current_user unless @written.user
-    @audits = { @written.id => @written.audits.count } if @written.id.present?
+    @audits = @written.id.present? ? { @written.id => @written.audits.count } : {}
 
     @page_title = @post.subject
 

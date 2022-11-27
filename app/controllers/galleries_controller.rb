@@ -4,18 +4,20 @@ class GalleriesController < UploadingController
 
   before_action :login_required, except: [:index, :show, :search]
   before_action :find_model, only: [:destroy, :edit, :update] # assumes login_required
+  before_action :require_create_permission, only: [:new, :create, :add, :icon]
   before_action :setup_new_icons, only: [:add, :icon]
   before_action :set_s3_url, only: [:edit, :add, :icon]
   before_action :editor_setup, only: [:new, :edit]
 
   def index
     if params[:user_id].present?
-      unless (@user = User.active.find_by_id(params[:user_id]))
+      unless (@user = User.active.full.find_by_id(params[:user_id]))
         flash[:error] = 'User could not be found.'
         redirect_to root_path and return
       end
     else
       return if login_required
+      return if readonly_forbidden
       @user = current_user
     end
 
@@ -55,21 +57,21 @@ class GalleriesController < UploadingController
   end
 
   def add
-    if params[:id] == '0' && params[:type] == 'existing'
-      flash[:error] = 'Cannot add existing icons to galleryless. Please remove from existing galleries instead.'
-      redirect_to user_gallery_path(id: 0, user_id: current_user.id)
-    end
+    return unless params[:id] == '0' && params[:type] == 'existing'
+    flash[:error] = 'Cannot add existing icons to galleryless. Please remove from existing galleries instead.'
+    redirect_to user_gallery_path(id: 0, user_id: current_user.id)
   end
 
   def show
     if params[:id].to_s == '0' # avoids casting nils to 0
       if params[:user_id].present?
-        unless (@user = User.active.find_by_id(params[:user_id]))
+        unless (@user = User.active.full.find_by_id(params[:user_id]))
           flash[:error] = 'User could not be found.'
           redirect_to root_path and return
         end
       else
         return if login_required
+        return if readonly_forbidden
         @user = current_user
       end
       @page_title = 'Galleryless Icons'
@@ -77,11 +79,7 @@ class GalleriesController < UploadingController
       @gallery = Gallery.find_by_id(params[:id])
       unless @gallery
         flash[:error] = "Gallery could not be found."
-        if logged_in?
-          redirect_to user_galleries_path(current_user) and return
-        else
-          redirect_to root_path and return
-        end
+        redirect_to(logged_in? ? user_galleries_path(current_user) : root_path) and return
       end
 
       @user = @gallery.user
@@ -183,7 +181,7 @@ class GalleriesController < UploadingController
     elsif icons.all?(&:save)
       flash[:success] = "Icons saved successfully."
       if @gallery
-        icons.each do |icon| @gallery.icons << icon end
+        icons.each { |icon| @gallery.icons << icon }
         redirect_to @gallery and return
       end
       redirect_to user_gallery_path(id: 0, user_id: current_user.id)
@@ -220,10 +218,15 @@ class GalleriesController < UploadingController
       redirect_to user_galleries_path(current_user) and return
     end
 
-    unless @gallery.user_id == current_user.id
-      flash[:error] = "That is not your gallery."
-      redirect_to user_galleries_path(current_user) and return
-    end
+    return if @gallery.user_id == current_user.id
+    flash[:error] = "That is not your gallery."
+    redirect_to user_galleries_path(current_user)
+  end
+
+  def require_create_permission
+    return unless current_user.read_only?
+    flash[:error] = "You do not have permission to create galleries."
+    redirect_to continuities_path
   end
 
   def setup_new_icons

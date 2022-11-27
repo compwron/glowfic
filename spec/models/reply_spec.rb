@@ -49,7 +49,7 @@ RSpec.describe Reply do
   end
 
   describe "#notify_other_authors" do
-    before(:each) do ResqueSpec.reset! end
+    before(:each) { ResqueSpec.reset! }
 
     it "does nothing if skip_notify is set" do
       notified_user = create(:user, email_notifications: true)
@@ -184,6 +184,39 @@ RSpec.describe Reply do
       expect(Reply.where(id: replies.map(&:id)).count).to eq(2)
       expect(Reply.find_by(id: reply.id)).not_to be_present
       expect(post.reload.last_reply_id).to eq(replies[1].id)
+    end
+  end
+
+  describe "#update_flat_post" do
+    include ActiveJob::TestHelper
+
+    let(:user) { create(:user) }
+    let(:reply) { create(:reply, user: user, icon: create(:icon, user: user), character: create(:character, user: user)) }
+
+    before(:each) do
+      perform_enqueued_jobs { reply }
+    end
+
+    it "queues on update" do
+      reply.update!(content: 'new text')
+      expect(GenerateFlatPostJob).to have_been_enqueued.with(reply.post_id).on_queue('high')
+    end
+
+    it "queues on deletion" do
+      reply.destroy!
+      expect(GenerateFlatPostJob).to have_been_enqueued.with(reply.post_id).on_queue('high')
+    end
+
+    it "does not queue on update if 'skip_regenerate' is set" do
+      reply.skip_regenerate = true
+      reply.update!(content: 'new text')
+      expect(GenerateFlatPostJob).not_to have_been_enqueued.with(reply.post_id)
+    end
+
+    it "does not queue on destroy if 'skip_regenerate' is set" do
+      reply.skip_regenerate = true
+      reply.destroy!
+      expect(GenerateFlatPostJob).not_to have_been_enqueued.with(reply.post_id)
     end
   end
 

@@ -6,6 +6,13 @@ RSpec.describe IndexSectionsController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      get :new
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
+    end
+
     it "requires permission" do
       user = create(:user)
       index = create(:index)
@@ -37,6 +44,13 @@ RSpec.describe IndexSectionsController do
       post :create
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      post :create
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "requires permission" do
@@ -71,6 +85,8 @@ RSpec.describe IndexSectionsController do
   end
 
   describe "GET show" do
+    let(:section) { create(:index_section) }
+
     it "requires valid section" do
       get :show, params: { id: -1 }
       expect(response).to redirect_to(indexes_url)
@@ -78,7 +94,6 @@ RSpec.describe IndexSectionsController do
     end
 
     it "does not require login" do
-      section = create(:index_section)
       get :show, params: { id: section.id }
       expect(response).to have_http_status(:ok)
       expect(assigns(:page_title)).to eq(section.name)
@@ -86,7 +101,13 @@ RSpec.describe IndexSectionsController do
 
     it "works with login" do
       login
-      section = create(:index_section)
+      get :show, params: { id: section.id }
+      expect(response).to have_http_status(200)
+      expect(assigns(:page_title)).to eq(section.name)
+    end
+
+    it "works for reader account" do
+      login_as(create(:reader_user))
       get :show, params: { id: section.id }
       expect(response).to have_http_status(:ok)
       expect(assigns(:page_title)).to eq(section.name)
@@ -98,6 +119,13 @@ RSpec.describe IndexSectionsController do
       get :edit, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      get :edit, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "requires valid section" do
@@ -129,6 +157,13 @@ RSpec.describe IndexSectionsController do
       put :update, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      put :update, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "requires index permission" do
@@ -169,6 +204,13 @@ RSpec.describe IndexSectionsController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      delete :destroy, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
+    end
+
     it "requires valid section" do
       login
       delete :destroy, params: { id: -1 }
@@ -197,10 +239,17 @@ RSpec.describe IndexSectionsController do
       section = create(:index_section)
       index = section.index
       login_as(index.user)
-      expect_any_instance_of(IndexSection).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+
+      allow(IndexSection).to receive(:find_by).and_call_original
+      allow(IndexSection).to receive(:find_by).with(id: section.id.to_s).and_return(section)
+      allow(section).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+      expect(section).to receive(:destroy!)
+
       delete :destroy, params: { id: section.id }
+
       expect(response).to redirect_to(index_url(index))
-      expect(flash[:error]).to eq({ message: "Index section could not be deleted.", array: [] })
+      expect(flash[:error][:message]).to eq("Index section could not be deleted.")
+      expect(flash[:error][:array]).to be_empty
       expect(index.reload.index_sections).to eq([section])
     end
   end

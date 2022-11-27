@@ -21,10 +21,24 @@ RSpec.describe CharactersController do
       expect(response.status).to eq(200)
     end
 
+    it "requires id to be full user" do
+      user = create(:reader_user)
+      get :index, params: { user_id: user.id }
+      expect(response).to redirect_to(users_url)
+      expect(flash[:error]).to eq("User could not be found.")
+    end
+
     it "succeeds when logged in" do
       login
       get :index
       expect(response.status).to eq(200)
+    end
+
+    it "it requires full user without an id" do
+      login_as(create(:reader_user))
+      get :index
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "succeeds with an id when logged in" do
@@ -74,6 +88,13 @@ RSpec.describe CharactersController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      get :new
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("You do not have permission to create characters.")
+    end
+
     it "succeeds when logged in" do
       login
       get :new
@@ -113,6 +134,13 @@ RSpec.describe CharactersController do
       post :create
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      post :create
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("You do not have permission to create characters.")
     end
 
     it "fails with missing params" do
@@ -211,6 +239,8 @@ RSpec.describe CharactersController do
   end
 
   describe "GET show" do
+    let(:character) { create(:character) }
+
     it "requires valid character logged out" do
       get :show, params: { id: -1 }
       expect(response).to redirect_to(root_url)
@@ -225,22 +255,25 @@ RSpec.describe CharactersController do
     end
 
     it "should succeed when logged out" do
-      character = create(:character)
       get :show, params: { id: character.id }
       expect(response.status).to eq(200)
     end
 
     it "should succeed when logged in" do
-      character = create(:character)
       login
       get :show, params: { id: character.id }
       expect(response.status).to eq(200)
     end
 
-    it "should set correct variables" do
-      character = create(:character)
-      Array.new(26) { create(:post, character: character, user: character.user) }
+    it "works for reader accounts" do
+      login_as(create(:reader_user))
       get :show, params: { id: character.id }
+      expect(response).to have_http_status(200)
+    end
+
+    it "should set correct variables" do
+      Array.new(26) { create(:post, character: character, user: character.user) }
+      get :show, params: { id: character.id, view: 'posts' }
       expect(response.status).to eq(200)
       expect(assigns(:page_title)).to eq(character.name)
       expect(assigns(:posts).size).to eq(25)
@@ -248,14 +281,12 @@ RSpec.describe CharactersController do
     end
 
     it "should only show visible posts" do
-      character = create(:character)
       create(:post, character: character, user: character.user, privacy: :private)
       get :show, params: { id: character.id }
       expect(assigns(:posts)).to be_blank
     end
 
     it "orders recent posts" do
-      character = create(:character)
       post3 = create(:post)
       post1 = create(:post, user: character.user, character: character)
       post4 = create(:post, user: character.user, character: character)
@@ -264,7 +295,7 @@ RSpec.describe CharactersController do
       create(:reply, post: post3, user: character.user, character: character)
       create(:reply, post: post2, user: character.user, character: character)
       create(:reply, post: post1)
-      get :show, params: { id: character.id }
+      get :show, params: { id: character.id, view: 'posts' }
       expect(assigns(:posts)).to eq([post1, post2, post3, post4])
     end
 
@@ -324,6 +355,10 @@ RSpec.describe CharactersController do
       get :edit, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      skip "TODO Currently relies on inability to create characters"
     end
 
     it "requires valid character id" do
@@ -406,6 +441,10 @@ RSpec.describe CharactersController do
       put :update, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      skip "TODO Currently relies on inability to create characters"
     end
 
     it "requires valid character id" do
@@ -737,6 +776,12 @@ RSpec.describe CharactersController do
       expect(assigns(:page_title)).to eq("Facecasts")
     end
 
+    it "works for reader accounts" do
+      login_as(create(:reader_user))
+      get :facecasts
+      expect(response).to have_http_status(200)
+    end
+
     it "sets correct variables for facecast name sort" do
       chars = Array.new(3) { create(:character, pb: SecureRandom.urlsafe_base64) }
       get :facecasts
@@ -747,14 +792,14 @@ RSpec.describe CharactersController do
     it "sets correct variables for character name sort: character only" do
       chars = Array.new(3) { create(:character, pb: SecureRandom.urlsafe_base64) }
       get :facecasts, params: { sort: 'name' }
-      names = assigns(:pbs).map(&:item_name)
+      names = assigns(:pbs).map(&:name)
       expect(names).to match_array(chars.map(&:name))
     end
 
     it "sets correct variables for character name sort: template only" do
       chars = Array.new(3) { create(:template_character, pb: SecureRandom.urlsafe_base64) }
       get :facecasts, params: { sort: 'name' }
-      names = assigns(:pbs).map(&:item_name)
+      names = assigns(:pbs).map(&:name)
       expect(names).to match_array(chars.map(&:template).map(&:name))
     end
 
@@ -762,7 +807,7 @@ RSpec.describe CharactersController do
       chars = Array.new(3) { create(:template_character, pb: SecureRandom.urlsafe_base64) }
       chars += Array.new(3) { create(:character, pb: SecureRandom.urlsafe_base64) }
       get :facecasts, params: { sort: 'name' }
-      names = assigns(:pbs).map(&:item_name)
+      names = assigns(:pbs).map(&:name)
       expect(names).to match_array(chars.map { |c| (c.template || c).name })
     end
 
@@ -780,6 +825,10 @@ RSpec.describe CharactersController do
       delete :destroy, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      skip "TODO Currently relies on inability to create characters"
     end
 
     it "requires valid character" do
@@ -812,8 +861,14 @@ RSpec.describe CharactersController do
       character = create(:character)
       post = create(:post, user: character.user, character: character)
       login_as(character.user)
-      expect_any_instance_of(Character).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+
+      allow(Character).to receive(:find_by).and_call_original
+      allow(Character).to receive(:find_by).with(id: character.id.to_s).and_return(character)
+      allow(character).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+      expect(character).to receive(:destroy!)
+
       delete :destroy, params: { id: character.id }
+
       expect(response).to redirect_to(character_url(character))
       expect(flash[:error]).to eq({ message: "Character could not be deleted.", array: [] })
       expect(post.reload.character).to eq(character)
@@ -822,10 +877,13 @@ RSpec.describe CharactersController do
 
   describe "GET replace" do
     it "requires login" do
-      character = create(:character)
-      get :replace, params: { id: character.id }
+      get :replace, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq('You must be logged in to view that page.')
+    end
+
+    it "requires full account" do
+      skip "TODO Currently relies on inability to create characters"
     end
 
     it "requires valid character" do
@@ -926,10 +984,13 @@ RSpec.describe CharactersController do
 
   describe "POST do_replace" do
     it "requires login" do
-      character = create(:character)
-      post :do_replace, params: { id: character.id }
+      post :do_replace, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq('You must be logged in to view that page.')
+    end
+
+    it "requires full account" do
+      skip "TODO Currently relies on inability to create characters"
     end
 
     it "requires valid character" do
@@ -1024,7 +1085,7 @@ RSpec.describe CharactersController do
         expect(reply.post.reload.character_id).to eq(reply_post_char) # check it doesn't replace all replies in a post
 
         audit = reply.audits.where(action: 'update').first
-        expect(audit).not_to be(nil)
+        expect(audit).not_to be_nil
         expect(audit.user).to eq(user)
       end
     end
@@ -1156,6 +1217,12 @@ RSpec.describe CharactersController do
       expect(assigns(:users)).to be_empty
     end
 
+    it "works for reader accounts" do
+      login_as(create(:reader_user))
+      get :search
+      expect(response).to have_http_status(200)
+    end
+
     it 'searches author' do
       author = create(:user)
       found = create(:character, user: author)
@@ -1215,41 +1282,39 @@ RSpec.describe CharactersController do
       expect(assigns(:search_results)).to match_array([found])
     end
 
-    context "searching" do
-      before(:each) do
-        @name = create(:character, name: 'a', screenname: 'b', nickname: 'c')
-        @nickname = create(:character, name: 'b', screenname: 'c', nickname: 'a')
-        @screenname = create(:character, name: 'c', screenname: 'a', nickname: 'b')
-      end
+    context "with search" do
+      let!(:name) { create(:character, name: 'a', screenname: 'b', nickname: 'c') }
+      let!(:nickname) { create(:character, name: 'b', screenname: 'c', nickname: 'a') }
+      let!(:screenname) { create(:character, name: 'c', screenname: 'a', nickname: 'b') }
 
       it "searches names correctly" do
         get :search, params: { commit: true, name: 'a', search_name: true }
-        expect(assigns(:search_results)).to match_array([@name])
+        expect(assigns(:search_results)).to match_array([name])
       end
 
       it "searches screenname correctly" do
         get :search, params: { commit: true, name: 'a', search_screenname: true }
-        expect(assigns(:search_results)).to match_array([@screenname])
+        expect(assigns(:search_results)).to match_array([screenname])
       end
 
       it "searches nickname correctly" do
         get :search, params: { commit: true, name: 'a', search_nickname: true }
-        expect(assigns(:search_results)).to match_array([@nickname])
+        expect(assigns(:search_results)).to match_array([nickname])
       end
 
       it "searches name + screenname correctly" do
         get :search, params: { commit: true, name: 'a', search_name: true, search_screenname: true }
-        expect(assigns(:search_results)).to match_array([@name, @screenname])
+        expect(assigns(:search_results)).to match_array([name, screenname])
       end
 
       it "searches name + nickname correctly" do
         get :search, params: { commit: true, name: 'a', search_name: true, search_nickname: true }
-        expect(assigns(:search_results)).to match_array([@name, @nickname])
+        expect(assigns(:search_results)).to match_array([name, nickname])
       end
 
       it "searches nickname + screenname correctly" do
         get :search, params: { commit: true, name: 'a', search_nickname: true, search_screenname: true }
-        expect(assigns(:search_results)).to match_array([@nickname, @screenname])
+        expect(assigns(:search_results)).to match_array([nickname, screenname])
       end
 
       it "searches all correctly" do
@@ -1260,7 +1325,7 @@ RSpec.describe CharactersController do
           search_screenname: true,
           search_nickname: true,
         }
-        expect(assigns(:search_results)).to match_array([@name, @screenname, @nickname])
+        expect(assigns(:search_results)).to match_array([name, screenname, nickname])
       end
 
       it "orders results correctly" do
@@ -1291,6 +1356,10 @@ RSpec.describe CharactersController do
       post :duplicate, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq('You must be logged in to view that page.')
+    end
+
+    it "requires full account" do
+      skip "TODO Currently relies on inability to create characters"
     end
 
     it "requires valid character id" do

@@ -22,6 +22,7 @@ class Icon < ApplicationRecord
   before_validation :use_icon_host
   before_save :use_https
   before_update :delete_from_s3
+  after_update :update_flat_posts
   after_destroy :clear_icon_ids, :delete_from_s3
 
   scope :ordered, -> { order(Arel.sql('lower(keyword) asc'), created_at: :asc, id: :asc) }
@@ -40,15 +41,16 @@ class Icon < ApplicationRecord
 
   def use_icon_host
     return unless uploaded?
-    return unless url.present? && ENV['ICON_HOST'].present?
-    return if url.to_s.include?(ENV['ICON_HOST'])
-    self.url = ENV['ICON_HOST'] + url[(url.index(S3_DOMAIN).to_i + S3_DOMAIN.length)..-1]
+    return unless url.present? && ENV.fetch('ICON_HOST', nil).present?
+    return if url.to_s.include?(ENV.fetch('ICON_HOST'))
+    self.url = ENV.fetch('ICON_HOST') + url[(url.index(S3_DOMAIN).to_i + S3_DOMAIN.length)..-1]
   end
 
   def use_https
     return if uploaded?
     return unless url.starts_with?('http://')
-    return unless url.include?("imgur.com") || url.include?("dreamwidth.org")
+    uri = URI(url)
+    return unless uri.host.match?(/(^|\.)imgur\.com$/) || uri.host.match?(/(^|\.)dreamwidth\.org$/)
     self.url = url.sub('http:', 'https:')
   end
 
@@ -71,6 +73,12 @@ class Icon < ApplicationRecord
   def clear_icon_ids
     UpdateModelJob.perform_later(Post.to_s, { icon_id: id }, { icon_id: nil }, audited_user_id)
     UpdateModelJob.perform_later(Reply.to_s, { icon_id: id }, { icon_id: nil }, audited_user_id)
+  end
+
+  def update_flat_posts
+    return unless saved_change_to_url? || saved_change_to_keyword?
+    post_ids = (Post.where(icon_id: id).pluck(:id) + Reply.where(icon_id: id).select(:post_id).distinct.pluck(:post_id)).uniq
+    post_ids.each { |id| GenerateFlatPostJob.enqueue(id) }
   end
 
   class UploadError < RuntimeError

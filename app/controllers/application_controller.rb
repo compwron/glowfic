@@ -19,17 +19,15 @@ class ApplicationController < ActionController::Base
   protected
 
   def login_required
-    unless logged_in?
-      flash[:error] = "You must be logged in to view that page."
-      redirect_to root_path
-    end
+    return if logged_in?
+    flash[:error] = "You must be logged in to view that page."
+    redirect_to root_path
   end
 
   def logout_required
-    if logged_in?
-      flash[:error] = "You are already logged in."
-      redirect_to continuities_path
-    end
+    return unless logged_in?
+    flash[:error] = "You are already logged in."
+    redirect_to continuities_path
   end
 
   def handle_invalid_token
@@ -147,11 +145,11 @@ class ApplicationController < ActionController::Base
     @unread_ids ||= []
     @unread_ids += unread_views.map(&:post_id)
 
-    if with_unread
-      @unread_counts = Reply.where(post_id: @unread_ids).joins('INNER JOIN post_views ON replies.post_id = post_views.post_id')
-      @unread_counts = @unread_counts.where(post_views: { user_id: current_user.id })
-      @unread_counts = @unread_counts.where('replies.created_at > post_views.read_at').group(:post_id).count
-    end
+    return unless with_unread
+
+    @unread_counts = Reply.where(post_id: @unread_ids).joins('INNER JOIN post_views ON replies.post_id = post_views.post_id')
+    @unread_counts = @unread_counts.where(post_views: { user_id: current_user.id })
+    @unread_counts = @unread_counts.where('replies.created_at > post_views.read_at').group(:post_id).count
   end
 
   attr_reader :unread_ids, :opened_ids, :unread_counts
@@ -165,6 +163,13 @@ class ApplicationController < ActionController::Base
     "#{short_msg[0...73]}…" # make the absolute max length 75 characters
   end
   helper_method :generate_short
+
+  def readonly_forbidden
+    return unless logged_in?
+    return unless current_user.read_only?
+    flash[:error] = "This feature is not available to read-only accounts."
+    redirect_to continuities_path
+  end
 
   private
 
@@ -200,9 +205,9 @@ class ApplicationController < ActionController::Base
   def require_glowfic_domain
     return unless Rails.env.production? || params[:force_domain] # for testability
     return unless standard_request?
-    return if request.host.include?('glowfic.com')
-    return if request.host.include?('glowfic-staging.herokuapp.com')
-    glowfic_url = root_url(host: ENV['DOMAIN_NAME'], protocol: 'https')[0...-1] + request.fullpath # strip double slash
+    return if request.host.match?(/(^|\.)glowfic\.com$/)
+    return if request.host.match?(/(^|\.)glowfic-staging\.herokuapp\.com$/)
+    glowfic_url = root_url(host: ENV.fetch('DOMAIN_NAME'), protocol: 'https')[0...-1] + request.fullpath # strip double slash
     redirect_to glowfic_url, status: :moved_permanently
   end
 

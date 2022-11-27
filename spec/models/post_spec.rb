@@ -459,6 +459,13 @@ RSpec.describe Post do
       expect(post.total_word_count).to eq(5)
     end
 
+    it "should not reflect HTML tags in the word count" do
+      post = create(:post, content: '<strong> one</strong> two three four five')
+      create(:reply, post: post, content: '<strong> six </strong>')
+      expect(post.word_count).to eq(5)
+      expect(post.total_word_count).to eq(6)
+    end
+
     it "orders users correctly" do
       post = create(:post, content: 'one')
       two = create(:reply, post: post, content: 'two two')
@@ -591,6 +598,31 @@ RSpec.describe Post do
       end
     end
 
+    context "full accounts" do
+      let(:post) { create(:post, privacy: :full_accounts) }
+
+      it "is visible to poster" do
+        expect(post).to be_visible_to(post.user)
+      end
+
+      it "is visible to author" do
+        reply = create(:reply, post: post)
+        expect(post).to be_visible_to(reply.user)
+      end
+
+      it "is visible to full users" do
+        expect(post).to be_visible_to(create(:user))
+      end
+
+      it "is not visible to readers" do
+        expect(post).not_to be_visible_to(create(:reader_user))
+      end
+
+      it "is not visible to logged out (nil) users" do
+        expect(post).not_to be_visible_to(nil)
+      end
+    end
+
     context "blocks" do
       it "hides blocked posts" do
         post = create(:post, authors_locked: true)
@@ -617,7 +649,7 @@ RSpec.describe Post do
   describe "#first_unread_for" do
     it "uses instance variable if set" do
       post = create(:post)
-      post.instance_variable_set('@first_unread', 3)
+      post.instance_variable_set(:@first_unread, 3)
       expect(post).not_to receive(:last_read)
       expect(post.first_unread_for(nil)).to eq(3)
     end
@@ -1001,6 +1033,7 @@ RSpec.describe Post do
       create(:post, privacy: :private)
       create_list(:post, 2, privacy: :access_list)
       create_list(:post, 2, privacy: :registered)
+      create_list(:post, 2, privacy: :full_accounts)
       posts = create_list(:post, 3, privacy: :public)
       expect(Post.visible_to(nil)).to match_array(posts)
     end
@@ -1010,6 +1043,18 @@ RSpec.describe Post do
 
       it "shows constellation-only posts" do
         posts = create_list(:post, 2, privacy: :registered)
+        expect(Post.visible_to(user)).to match_array(posts)
+      end
+
+      it "shows full account privacy posts as full user" do
+        posts = create_list(:post, 2, privacy: :full_accounts)
+        expect(Post.visible_to(user)).to match_array(posts)
+      end
+
+      it "does not show full account privacy posts as reader user" do
+        user.update!(role_id: Permissible::READONLY)
+        posts = create_list(:post, 2, privacy: :registered)
+        create(:post, privacy: :full_accounts)
         expect(Post.visible_to(user)).to match_array(posts)
       end
 

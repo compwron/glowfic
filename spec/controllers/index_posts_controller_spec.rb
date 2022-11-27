@@ -6,6 +6,13 @@ RSpec.describe IndexPostsController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      get :new
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
+    end
+
     it "requires permission" do
       user = create(:user)
       index = create(:index)
@@ -37,6 +44,13 @@ RSpec.describe IndexPostsController do
       post :create
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      post :create
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "requires permission" do
@@ -77,6 +91,13 @@ RSpec.describe IndexPostsController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      get :edit, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
+    end
+
     it "requires valid index post" do
       login
       get :edit, params: { id: -1 }
@@ -108,6 +129,13 @@ RSpec.describe IndexPostsController do
       patch :update, params: { id: -1 }
       expect(response).to redirect_to(root_url)
       expect(flash[:error]).to eq("You must be logged in to view that page.")
+    end
+
+    it "requires full account" do
+      login_as(create(:reader_user))
+      patch :update, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
     end
 
     it "requires valid index post" do
@@ -155,6 +183,13 @@ RSpec.describe IndexPostsController do
       expect(flash[:error]).to eq("You must be logged in to view that page.")
     end
 
+    it "requires full account" do
+      login_as(create(:reader_user))
+      delete :destroy, params: { id: -1 }
+      expect(response).to redirect_to(continuities_path)
+      expect(flash[:error]).to eq("This feature is not available to read-only accounts.")
+    end
+
     it "requires valid index post" do
       login
       delete :destroy, params: { id: -1 }
@@ -185,10 +220,16 @@ RSpec.describe IndexPostsController do
       index = create(:index)
       post = create(:post, user: index.user)
       index.posts << post
-      login_as(index.user)
-      expect_any_instance_of(IndexPost).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
       index_post = index.index_posts.first
+      login_as(index.user)
+
+      allow(IndexPost).to receive(:find_by).and_call_original
+      allow(IndexPost).to receive(:find_by).with(id: index_post.id.to_s).and_return(index_post)
+      allow(index_post).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, 'fake error')
+      expect(index_post).to receive(:destroy!)
+
       delete :destroy, params: { id: index_post.id }
+
       expect(response).to redirect_to(index_url(index))
       expect(flash[:error]).to eq({ message: "Post could not be removed from index.", array: [] })
       expect(index.reload.index_posts).to eq([index_post])
