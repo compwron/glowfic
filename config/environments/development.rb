@@ -78,7 +78,7 @@ Rails.application.configure do
   config.file_watcher = ActiveSupport::EventedFileUpdateChecker
 
   # Check html is valid
-  config.middleware.use HTMLProofer::Middleware
+  # config.middleware.use ::HTMLProofer::Middleware
 
   # raise an error if assets aren't found
   config.assets.unknown_asset_fallback = false
