@@ -76,6 +76,9 @@ group :development, :test do
   gem 'rspec-rails'
   gem 'seed_dump', '~> 3.2'
   gem 'thin'
+  gem 'pry'
+  gem 'spring'
+  gem 'spring-commands-rspec'
 end
 
 group :test do
